@@ -51,7 +51,7 @@ public class JustEnoughDiscordIntegrationMod {
     private static ForgeConfigSpec.ConfigValue<List<? extends String>> webhookEntries;
 
     private static DiscordApiBuilder discordBuilder;
-    private static DiscordApi discord;
+    private static Optional<DiscordApi> discord = Optional.empty();
 
     static {
         ForgeConfigSpec.Builder configBuilder = new ForgeConfigSpec.Builder();
@@ -87,71 +87,54 @@ public class JustEnoughDiscordIntegrationMod {
         LOGGER.info("SERVER STARTING");
         discordBuilder.setToken(botTokenEntry.get());
         discordBuilder.login().thenAccept(dcObject -> {
-            discord = dcObject;
+            discord = Optional.of(dcObject);
             sendMessage("Server Starting!");
         });
     }
 
     @SubscribeEvent
     public void onServerShutdown(FMLServerStoppingEvent event) {
-        if (discord != null) {
-            LOGGER.info("Shutting down discord");
-            sendMessage("Server shutting down!");
-        }
+        LOGGER.info("Shutting down discord");
+        sendMessage("Server shutting down!");
     }
 
     @SubscribeEvent
     public void onServerShutdown(FMLServerStoppedEvent event) {
-        if (discord != null) {
+        discord.ifPresent(dc -> {
             LOGGER.info("Discord stopped");
-            sendMessage("Server stopped!", wh -> discord.disconnect());
-        }
+            sendMessage("Server stopped!", wh -> dc.disconnect());
+        });
     }
 
     @SubscribeEvent
     public void death(LivingDeathEvent event) {
-        if (discord != null) {
-            final DamageSource source = event.getSource();
-
-            sendMessage(strip(source.getLocalizedDeathMessage(event.getEntityLiving()).getString()));
-        }
+        final DamageSource source = event.getSource();
+        sendMessage(strip(source.getLocalizedDeathMessage(event.getEntityLiving()).getString()));
     }
 
     @SubscribeEvent
     public void playerLeave(PlayerEvent.PlayerLoggedOutEvent event) {
-        if (discord != null) {
-            final String playerName = strip(event.getPlayer().getDisplayName().getString());
-
-            sendMessage(String.format("%s left the game", playerName));
-        }
+        final String playerName = strip(event.getPlayer().getDisplayName().getString());
+        sendMessage(String.format("%s left the game", playerName));
     }
 
     @SubscribeEvent
     public void playerJoin(PlayerEvent.PlayerLoggedInEvent event) {
-        if (discord != null) {
-            final String playerName = strip(event.getPlayer().getDisplayName().getString());
-
-            sendMessage(String.format("%s joined the game", playerName));
-        }
+        final String playerName = strip(event.getPlayer().getDisplayName().getString());
+        sendMessage(String.format("%s joined the game", playerName));
     }
 
     @SubscribeEvent
     public void playerLeave(AdvancementEvent event) {
-        if (discord != null) {
-            final Advancement advancement = event.getAdvancement();
-            if (advancement.getDisplay() == null) {
-                return;
-            }
-            final String playerName = strip(event.getPlayer().getDisplayName().getString());
-            final String advancementName = strip(advancement.getDisplay().getTitle().getString());
-            final String advancementDesc = strip(advancement.getDisplay().getDescription().getString());
-
-            sendMessage(String.format("%s has made the advancement **%s** - %s", playerName, advancementName, advancementDesc));
+        final Advancement advancement = event.getAdvancement();
+        if (advancement.getDisplay() == null) {
+            return;
         }
-    }
+        final String playerName = strip(event.getPlayer().getDisplayName().getString());
+        final String advancementName = strip(advancement.getDisplay().getTitle().getString());
+        final String advancementDesc = strip(advancement.getDisplay().getDescription().getString());
 
-    private static String strip(final String original) {
-        return ChatFormatting.stripFormatting(original);
+        sendMessage(String.format("%s has made the advancement **%s** - %s", playerName, advancementName, advancementDesc));
     }
 
     @SubscribeEvent
@@ -217,28 +200,32 @@ public class JustEnoughDiscordIntegrationMod {
     }
 
     private static void sendMessage(final String message, final Consumer<IncomingWebhook> afterSend) {
-        if (discord != null) {
+        discord.ifPresent(dc -> {
             try {
                 webhookEntries.get().forEach(webhookUrl -> {
-                    final CompletableFuture<IncomingWebhook> w = discord.getIncomingWebhookByUrl(webhookUrl);
+                    final CompletableFuture<IncomingWebhook> w = dc.getIncomingWebhookByUrl(webhookUrl);
                     w.thenAccept(wh -> wh.sendMessage(message).thenAccept(m -> afterSend.accept(wh)));
                 });
             } catch (Exception exception) {
                 exception.printStackTrace();
             }
-        }
+        });
     }
 
     private static void sendMessage(final String message, final String username, final URL url, final Consumer<IncomingWebhook> afterSend) {
-        if (discord != null) {
+        discord.ifPresent(dc -> {
             try {
                 webhookEntries.get().forEach(webhookUrl -> {
-                    final CompletableFuture<IncomingWebhook> w = discord.getIncomingWebhookByUrl(webhookUrl);
+                    final CompletableFuture<IncomingWebhook> w = dc.getIncomingWebhookByUrl(webhookUrl);
                     w.thenAccept(wh -> wh.sendMessage(message, username, url).thenAccept(m -> afterSend.accept(wh)));
                 });
             } catch (Exception exception) {
                 exception.printStackTrace();
             }
-        }
+        });
+    }
+
+    private static String strip(final String original) {
+        return ChatFormatting.stripFormatting(original);
     }
 }
