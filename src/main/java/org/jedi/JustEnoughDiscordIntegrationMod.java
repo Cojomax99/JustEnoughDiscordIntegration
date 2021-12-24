@@ -1,4 +1,4 @@
-package com.example.examplemod;
+package org.jedi;
 
 import net.minecraft.ChatFormatting;
 import net.minecraft.Util;
@@ -30,7 +30,7 @@ import org.javacord.api.entity.webhook.IncomingWebhook;
 import org.javacord.api.event.message.MessageCreateEvent;
 import org.javacord.api.listener.message.MessageCreateListener;
 
-import java.awt.*;
+import java.awt.Color;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.Optional;
@@ -39,8 +39,8 @@ import java.util.concurrent.RejectedExecutionException;
 import java.util.function.Consumer;
 
 // The value here should match an entry in the META-INF/mods.toml file
-@Mod("examplemod")
-public class ExampleMod {
+@Mod("jedi")
+public class JustEnoughDiscordIntegrationMod {
     private static final Logger LOGGER = LogManager.getLogger();
 
     private static final String TOKEN = "";
@@ -49,7 +49,7 @@ public class ExampleMod {
     private static DiscordApiBuilder discordBuilder;
     private static DiscordApi discord;
 
-    public ExampleMod() {
+    public JustEnoughDiscordIntegrationMod() {
         // Register the setup method for modloading
         FMLJavaModLoadingContext.get().getModEventBus().addListener(this::setup);
 
