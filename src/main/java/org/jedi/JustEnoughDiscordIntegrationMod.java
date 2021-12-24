@@ -8,13 +8,16 @@ import net.minecraft.network.chat.Style;
 import net.minecraft.network.chat.TextColor;
 import net.minecraft.network.chat.TextComponent;
 import net.minecraft.world.damagesource.DamageSource;
+import net.minecraftforge.common.ForgeConfigSpec;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.event.ServerChatEvent;
 import net.minecraftforge.event.entity.living.LivingDeathEvent;
 import net.minecraftforge.event.entity.player.AdvancementEvent;
 import net.minecraftforge.event.entity.player.PlayerEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
+import net.minecraftforge.fml.ModLoadingContext;
 import net.minecraftforge.fml.common.Mod;
+import net.minecraftforge.fml.config.ModConfig;
 import net.minecraftforge.fml.event.lifecycle.FMLCommonSetupEvent;
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
 import net.minecraftforge.fmllegacy.server.ServerLifecycleHooks;
@@ -33,33 +36,48 @@ import org.javacord.api.listener.message.MessageCreateListener;
 import java.awt.Color;
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.RejectedExecutionException;
 import java.util.function.Consumer;
 
-// The value here should match an entry in the META-INF/mods.toml file
 @Mod("jedi")
 public class JustEnoughDiscordIntegrationMod {
     private static final Logger LOGGER = LogManager.getLogger();
 
-    private static final String TOKEN = "";
-    private static final String WEBHOOK_URL = "";
+    public static final ForgeConfigSpec GENERAL_SPEC;
+
+    private static ForgeConfigSpec.ConfigValue<String> botTokenEntry;
+    private static ForgeConfigSpec.ConfigValue<List<? extends String>> webhookEntries;
 
     private static DiscordApiBuilder discordBuilder;
     private static DiscordApi discord;
 
-    public JustEnoughDiscordIntegrationMod() {
-        // Register the setup method for modloading
-        FMLJavaModLoadingContext.get().getModEventBus().addListener(this::setup);
+    static {
+        ForgeConfigSpec.Builder configBuilder = new ForgeConfigSpec.Builder();
+        setupConfig(configBuilder);
+        GENERAL_SPEC = configBuilder.build();
+    }
 
-        // Register ourselves for server and other game events we are interested in
+    public JustEnoughDiscordIntegrationMod() {
+        FMLJavaModLoadingContext.get().getModEventBus().addListener(this::setup);
+        ModLoadingContext.get().registerConfig(ModConfig.Type.SERVER, GENERAL_SPEC, "jedi.toml");
         MinecraftForge.EVENT_BUS.register(this);
+    }
+
+    private static void setupConfig(ForgeConfigSpec.Builder builder) {
+        builder.comment(" Create a bot here: https://discord.com/developers/applications");
+        builder.push("Discord Values");
+
+        botTokenEntry = builder.comment(" The bot-specific token for your Discord bot")
+                .define("bot_token", "");
+
+        webhookEntries = builder.comment(" List of webhook URLs to post to from the game")
+                .defineList("webhook_urls", List.of(""), entry -> true);
     }
 
     private void setup(final FMLCommonSetupEvent event) {
         discordBuilder = new DiscordApiBuilder();
-        discordBuilder.setToken(TOKEN);
         discordBuilder.addMessageCreateListener(new DiscordMessageListener());
     }
 
@@ -67,6 +85,7 @@ public class JustEnoughDiscordIntegrationMod {
     @SubscribeEvent
     public void onServerStarting(FMLServerStartingEvent event) {
         LOGGER.info("SERVER STARTING");
+        discordBuilder.setToken(botTokenEntry.get());
         discordBuilder.login().thenAccept(dcObject -> {
             discord = dcObject;
             sendMessage("Server Starting!");
@@ -200,9 +219,11 @@ public class JustEnoughDiscordIntegrationMod {
     private static void sendMessage(final String message, final Consumer<IncomingWebhook> afterSend) {
         if (discord != null) {
             try {
-                final CompletableFuture<IncomingWebhook> w = discord.getIncomingWebhookByUrl(WEBHOOK_URL);
-                w.thenAccept(wh -> wh.sendMessage(message).thenAccept(m -> afterSend.accept(wh)));
-            } catch (RejectedExecutionException exception) {
+                webhookEntries.get().forEach(webhookUrl -> {
+                    final CompletableFuture<IncomingWebhook> w = discord.getIncomingWebhookByUrl(webhookUrl);
+                    w.thenAccept(wh -> wh.sendMessage(message).thenAccept(m -> afterSend.accept(wh)));
+                });
+            } catch (Exception exception) {
                 exception.printStackTrace();
             }
         }
@@ -211,8 +232,10 @@ public class JustEnoughDiscordIntegrationMod {
     private static void sendMessage(final String message, final String username, final URL url, final Consumer<IncomingWebhook> afterSend) {
         if (discord != null) {
             try {
-                final CompletableFuture<IncomingWebhook> w = discord.getIncomingWebhookByUrl(WEBHOOK_URL);
-                w.thenAccept(wh -> wh.sendMessage(message, username, url).thenAccept(m -> afterSend.accept(wh)));
+                webhookEntries.get().forEach(webhookUrl -> {
+                    final CompletableFuture<IncomingWebhook> w = discord.getIncomingWebhookByUrl(webhookUrl);
+                    w.thenAccept(wh -> wh.sendMessage(message, username, url).thenAccept(m -> afterSend.accept(wh)));
+                });
             } catch (Exception exception) {
                 exception.printStackTrace();
             }
