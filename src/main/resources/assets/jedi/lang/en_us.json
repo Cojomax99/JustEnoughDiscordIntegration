@@ -1,9 +1,3 @@
 {
-  "jedi.joined_game": "%s joined the game",
-  "jedi.left_game": "%s left the game",
-  "jedi.advancement": "%s has made the advancement **%s** - %s",
-  "jedi.replying_to": "replying to",
-  "jedi.server_stopped": "Server stopped!",
-  "jedi.server_started": "Server started!",
-  "jedi.server_shutting_down": "Server shutting down!"
+  "jedi.replying_to": "replying to"
 }

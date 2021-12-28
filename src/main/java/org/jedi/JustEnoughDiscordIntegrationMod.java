@@ -7,7 +7,7 @@ import net.minecraft.network.chat.ChatType;
 import net.minecraft.network.chat.Style;
 import net.minecraft.network.chat.TextColor;
 import net.minecraft.network.chat.TextComponent;
-import net.minecraft.world.damagesource.DamageSource;
+import net.minecraft.network.chat.TranslatableComponent;
 import net.minecraftforge.common.ForgeConfigSpec;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.event.ServerChatEvent;
@@ -45,7 +45,15 @@ import java.util.function.Consumer;
 public class JustEnoughDiscordIntegrationMod {
     private static final Logger LOGGER = LogManager.getLogger();
 
-    public static final ForgeConfigSpec GENERAL_SPEC;
+    private static final ForgeConfigSpec GENERAL_SPEC;
+    private static final String VISAGE_URL = "https://visage.surgeplay.com/bust/128/%s.png";
+
+    private static ForgeConfigSpec.ConfigValue<String> joinedGameEntry;
+    private static ForgeConfigSpec.ConfigValue<String> leftGameEntry;
+    private static ForgeConfigSpec.ConfigValue<String> advancementEntry;
+    private static ForgeConfigSpec.ConfigValue<String> serverStoppedEntry;
+    private static ForgeConfigSpec.ConfigValue<String> serverStartedEntry;
+    private static ForgeConfigSpec.ConfigValue<String> serverShuttingDownEntry;
 
     private static ForgeConfigSpec.ConfigValue<String> botTokenEntry;
     private static ForgeConfigSpec.ConfigValue<List<? extends String>> webhookEntries;
@@ -74,6 +82,21 @@ public class JustEnoughDiscordIntegrationMod {
 
         webhookEntries = builder.comment(" List of webhook URLs to post to from the game")
                 .defineList("webhook_urls", List.of(""), entry -> true);
+
+        builder.push("Translations");
+
+        joinedGameEntry = builder.comment(" Posted in discord when someone joins the world")
+                .define("joined_game", "%s joined the game");
+        leftGameEntry = builder.comment(" Posted in discord when someone leaves the world")
+                .define("left_game", "%s left the game");
+        advancementEntry = builder.comment(" Posted in discord when someone makes an advancement")
+                .define("advancement", "%s has made the advancement **%s** - %s");
+        serverStartedEntry = builder.comment(" Posted in discord when the server has started up")
+                .define("server_started", "Server started!");
+        serverStoppedEntry = builder.comment(" Posted in discord when the server has stopped")
+                .define("server_stopped", "Server stopped!");
+        serverShuttingDownEntry = builder.comment(" Posted in discord when the server begins shutting down")
+                .define("server_shutting_down", "Server shutting down!");
     }
 
     private void setup(final FMLCommonSetupEvent event) {
@@ -84,44 +107,36 @@ public class JustEnoughDiscordIntegrationMod {
     // You can use SubscribeEvent and let the Event Bus discover methods to call
     @SubscribeEvent
     public void onServerStarting(FMLServerStartingEvent event) {
-        LOGGER.info("SERVER STARTING");
         discordBuilder.setToken(botTokenEntry.get());
         discordBuilder.login().thenAccept(dcObject -> {
             discord = Optional.of(dcObject);
-            sendMessage("Server Starting!");
+            sendMessage(serverStartedEntry.get());
         });
     }
 
     @SubscribeEvent
-    public void onServerShutdown(FMLServerStoppingEvent event) {
-        LOGGER.info("Shutting down discord");
-        sendMessage("Server shutting down!");
+    public void onServerShuttingDown(FMLServerStoppingEvent event) {
+        sendMessage(serverShuttingDownEntry.get());
     }
 
     @SubscribeEvent
     public void onServerShutdown(FMLServerStoppedEvent event) {
-        discord.ifPresent(dc -> {
-            LOGGER.info("Discord stopped");
-            sendMessage("Server stopped!", wh -> dc.disconnect());
-        });
+        discord.ifPresent(dc -> sendMessage(serverStoppedEntry.get(), wh -> dc.disconnect()));
     }
 
     @SubscribeEvent
     public void death(LivingDeathEvent event) {
-        final DamageSource source = event.getSource();
-        sendMessage(strip(source.getLocalizedDeathMessage(event.getEntityLiving()).getString()));
+        sendMessage(strip(event.getSource().getLocalizedDeathMessage(event.getEntityLiving()).getString()));
     }
 
     @SubscribeEvent
     public void playerLeave(PlayerEvent.PlayerLoggedOutEvent event) {
-        final String playerName = strip(event.getPlayer().getDisplayName().getString());
-        sendMessage(String.format("%s left the game", playerName));
+        sendMessage(String.format(leftGameEntry.get(), getPlayerName(event)));
     }
 
     @SubscribeEvent
     public void playerJoin(PlayerEvent.PlayerLoggedInEvent event) {
-        final String playerName = strip(event.getPlayer().getDisplayName().getString());
-        sendMessage(String.format("%s joined the game", playerName));
+        sendMessage(String.format(joinedGameEntry.get(), getPlayerName(event)));
     }
 
     @SubscribeEvent
@@ -134,7 +149,7 @@ public class JustEnoughDiscordIntegrationMod {
         final String advancementName = strip(advancement.getDisplay().getTitle().getString());
         final String advancementDesc = strip(advancement.getDisplay().getDescription().getString());
 
-        sendMessage(String.format("%s has made the advancement **%s** - %s", playerName, advancementName, advancementDesc));
+        sendMessage(String.format(advancementEntry.get(), playerName, advancementName, advancementDesc));
     }
 
     @SubscribeEvent
@@ -144,10 +159,14 @@ public class JustEnoughDiscordIntegrationMod {
             final String message = event.getMessage();
             final String uuid = event.getPlayer().getStringUUID();
 
-            sendMessage(message, username, new URL(String.format("https://visage.surgeplay.com/bust/128/%s.png", uuid)));
+            sendMessage(message, username, new URL(String.format(VISAGE_URL, uuid)));
         } catch (MalformedURLException e) {
             e.printStackTrace();
         }
+    }
+
+    private static String getPlayerName(final PlayerEvent event) {
+        return strip(event.getPlayer().getDisplayName().getString());
     }
 
     private static class DiscordMessageListener implements MessageCreateListener {
@@ -178,7 +197,7 @@ public class JustEnoughDiscordIntegrationMod {
                 final TextColor parentTextColor;
                 parentTextColor = parentColor.map(value -> TextColor.fromRgb(value.getRGB())).orElseGet(() -> TextColor.fromLegacyFormat(ChatFormatting.WHITE));
 
-                chatMessage.append(" replying to ");
+                chatMessage.append(" ").append(new TranslatableComponent("jedi.replying_to")).append(" ");
                 final TextComponent parentChatMessage = new TextComponent("");
                 parentChatMessage.withStyle(Style.EMPTY.withColor(parentTextColor));
                 parentChatMessage.append(parentMessage.get().getAuthor().getDisplayName());

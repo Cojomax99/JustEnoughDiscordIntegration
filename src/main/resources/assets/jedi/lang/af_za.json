@@ -1,9 +1,3 @@
 {
-  "jedi.joined_game": "%s het by die spel aangesluit",
-  "jedi.left_game": "%s het die spel verlaat",
-  "jedi.advancement": "%s het die bevordering **%s** gemaak - %s",
-  "jedi.replying_to": "reageer op",
-  "jedi.server_stopped": "Bediener het gestop!",
-  "jedi.server_started": "Bediener het begin!",
-  "jedi.server_shutting_down": "Bediener is besig om te stop!"
+  "jedi.replying_to": "reageer op"
 }
