@@ -8,6 +8,8 @@ import net.minecraft.network.chat.Style;
 import net.minecraft.network.chat.TextColor;
 import net.minecraft.network.chat.TextComponent;
 import net.minecraft.network.chat.TranslatableComponent;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.LivingEntity;
 import net.minecraftforge.common.ForgeConfigSpec;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.event.ServerChatEvent;
@@ -43,8 +45,6 @@ import java.util.function.Consumer;
 
 @Mod("jedi")
 public class JustEnoughDiscordIntegrationMod {
-    private static final Logger LOGGER = LogManager.getLogger();
-
     private static final ForgeConfigSpec GENERAL_SPEC;
     private static final String VISAGE_URL = "https://visage.surgeplay.com/bust/128/%s.png";
 
@@ -104,7 +104,6 @@ public class JustEnoughDiscordIntegrationMod {
         discordBuilder.addMessageCreateListener(new DiscordMessageListener());
     }
 
-    // You can use SubscribeEvent and let the Event Bus discover methods to call
     @SubscribeEvent
     public void onServerStarting(FMLServerStartingEvent event) {
         discordBuilder.setToken(botTokenEntry.get());
@@ -126,7 +125,10 @@ public class JustEnoughDiscordIntegrationMod {
 
     @SubscribeEvent
     public void death(LivingDeathEvent event) {
-        sendMessage(strip(event.getSource().getLocalizedDeathMessage(event.getEntityLiving()).getString()));
+        final LivingEntity entity = event.getEntityLiving();
+        if (entity.getType() == EntityType.PLAYER || entity.hasCustomName()) {
+            sendMessage(strip(event.getSource().getLocalizedDeathMessage(entity).getString()));
+        }
     }
 
     @SubscribeEvent
