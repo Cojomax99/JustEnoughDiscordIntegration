@@ -35,7 +35,7 @@ import org.javacord.api.entity.webhook.IncomingWebhook;
 import org.javacord.api.event.message.MessageCreateEvent;
 import org.javacord.api.listener.message.MessageCreateListener;
 
-import java.awt.Color;
+import java.awt.*;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.List;
@@ -45,7 +45,9 @@ import java.util.function.Consumer;
 
 @Mod("jedi")
 public class JustEnoughDiscordIntegrationMod {
-    private static final ForgeConfigSpec GENERAL_SPEC;
+    private static final Logger LOGGER = LogManager.getLogger(JustEnoughDiscordIntegrationMod.class);
+
+    private static final ForgeConfigSpec SERVER_CONFIG;
     private static final String VISAGE_URL = "https://visage.surgeplay.com/bust/128/%s.png";
 
     private static ForgeConfigSpec.ConfigValue<String> joinedGameEntry;
@@ -57,6 +59,7 @@ public class JustEnoughDiscordIntegrationMod {
 
     private static ForgeConfigSpec.ConfigValue<String> botTokenEntry;
     private static ForgeConfigSpec.ConfigValue<List<? extends String>> webhookEntries;
+    private static ForgeConfigSpec.ConfigValue<List<? extends Long>> readChannels;
 
     private static DiscordApiBuilder discordBuilder;
     private static Optional<DiscordApi> discord = Optional.empty();
@@ -64,12 +67,12 @@ public class JustEnoughDiscordIntegrationMod {
     static {
         ForgeConfigSpec.Builder configBuilder = new ForgeConfigSpec.Builder();
         setupConfig(configBuilder);
-        GENERAL_SPEC = configBuilder.build();
+        SERVER_CONFIG = configBuilder.build();
     }
 
     public JustEnoughDiscordIntegrationMod() {
         FMLJavaModLoadingContext.get().getModEventBus().addListener(this::setup);
-        ModLoadingContext.get().registerConfig(ModConfig.Type.SERVER, GENERAL_SPEC, "jedi.toml");
+        ModLoadingContext.get().registerConfig(ModConfig.Type.SERVER, SERVER_CONFIG);
         MinecraftForge.EVENT_BUS.register(this);
     }
 
@@ -82,6 +85,9 @@ public class JustEnoughDiscordIntegrationMod {
 
         webhookEntries = builder.comment(" List of webhook URLs to post to from the game")
                 .defineList("webhook_urls", List.of(""), entry -> true);
+
+        readChannels = builder.comment(" List of IDs of discord channels to listen to")
+                .defineList("read_channels", List.of(), entry -> true);
 
         builder.push("Translations");
 
@@ -102,15 +108,21 @@ public class JustEnoughDiscordIntegrationMod {
     private void setup(final FMLCommonSetupEvent event) {
         discordBuilder = new DiscordApiBuilder();
         discordBuilder.addMessageCreateListener(new DiscordMessageListener());
+        discordBuilder.setShutdownHookRegistrationEnabled(false);
     }
 
     @SubscribeEvent
     public void onServerStarting(FMLServerStartingEvent event) {
-        discordBuilder.setToken(botTokenEntry.get());
-        discordBuilder.login().thenAccept(dcObject -> {
-            discord = Optional.of(dcObject);
-            sendMessage(serverStartedEntry.get());
-        });
+        final String token = botTokenEntry.get();
+        if (token.length() > 0) {
+            discordBuilder.setToken(token);
+            discordBuilder.login().thenAccept(dcObject -> {
+                discord = Optional.of(dcObject);
+                sendMessage(serverStartedEntry.get());
+            });
+        } else {
+            LOGGER.warn("Couldn't connect to discord - token empty. Check server config jedi.toml!");
+        }
     }
 
     @SubscribeEvent
@@ -120,7 +132,7 @@ public class JustEnoughDiscordIntegrationMod {
 
     @SubscribeEvent
     public void onServerShutdown(FMLServerStoppedEvent event) {
-        discord.ifPresent(dc -> sendMessage(serverStoppedEntry.get(), wh -> dc.disconnect()));
+        discord.ifPresent(dc -> sendMessage(serverStoppedEntry.get(), DiscordApi::disconnect));
     }
 
     @SubscribeEvent
@@ -177,6 +189,7 @@ public class JustEnoughDiscordIntegrationMod {
             final Message message = event.getMessage();
 
             if (!message.getAuthor().isRegularUser()) return;
+            if (!readChannels.get().contains(event.getChannel().getId())) return;
 
             final Optional<Message> parentMessage = message.getReferencedMessage();
 
@@ -216,29 +229,26 @@ public class JustEnoughDiscordIntegrationMod {
         sendMessage(message, w -> {});
     }
 
-    private static void sendMessage(final String message, final String username, final URL url) {
-        sendMessage(message, username, url, w -> {});
-    }
-
-    private static void sendMessage(final String message, final Consumer<IncomingWebhook> afterSend) {
+    private static void sendMessage(final String message, final Consumer<DiscordApi> afterSend) {
         discord.ifPresent(dc -> {
             try {
                 webhookEntries.get().forEach(webhookUrl -> {
-                    final CompletableFuture<IncomingWebhook> w = dc.getIncomingWebhookByUrl(webhookUrl);
-                    w.thenAccept(wh -> wh.sendMessage(message).thenAccept(m -> afterSend.accept(wh)));
+                    final CompletableFuture<IncomingWebhook> webhook = dc.getIncomingWebhookByUrl(webhookUrl);
+                    webhook.join().sendMessage(message);
                 });
+                afterSend.accept(dc);
             } catch (Exception exception) {
                 exception.printStackTrace();
             }
         });
     }
 
-    private static void sendMessage(final String message, final String username, final URL url, final Consumer<IncomingWebhook> afterSend) {
+    private static void sendMessage(final String message, final String username, final URL url) {
         discord.ifPresent(dc -> {
             try {
                 webhookEntries.get().forEach(webhookUrl -> {
                     final CompletableFuture<IncomingWebhook> w = dc.getIncomingWebhookByUrl(webhookUrl);
-                    w.thenAccept(wh -> wh.sendMessage(message, username, url).thenAccept(m -> afterSend.accept(wh)));
+                    w.thenAccept(wh -> wh.sendMessage(message, username, url));
                 });
             } catch (Exception exception) {
                 exception.printStackTrace();
