@@ -16,17 +16,23 @@ import java.util.ArrayList;
 import java.util.List;
 
 public final class DiscordMessageFormatter {
-    public static Component format(Message message) {
+    private final String replyingToText;
+
+    public DiscordMessageFormatter(String replyingToText) {
+        this.replyingToText = replyingToText;
+    }
+
+    public Component format(Message message) {
         final TextComponent header = new TextComponent("<@");
-        header.append(formatAuthorName(message));
+        header.append(this.formatAuthorName(message));
         header.append("> ");
 
         final MultilineBuilder builder = new MultilineBuilder(header);
 
         message.getReferencedMessage().ifPresent(parentMessage -> {
-            final MutableComponent replyingTo = new TextComponent(JustEnoughDiscordIntegrationMod.replyingToEntry.get() + " @")
+            final MutableComponent replyingTo = new TextComponent(this.replyingToText + " @")
                     .withStyle(ChatFormatting.GRAY, ChatFormatting.ITALIC)
-                    .append(formatAuthorName(parentMessage));
+                    .append(this.formatAuthorName(parentMessage));
             builder.appendLine(replyingTo);
         });
 
@@ -36,14 +42,14 @@ public final class DiscordMessageFormatter {
         }
 
         for (MessageAttachment attachment : message.getAttachments()) {
-            builder.appendLine(formatAttachment(attachment));
+            builder.appendLine(this.formatAttachment(attachment));
         }
 
         return builder.build();
     }
 
-    private static Component formatAuthorName(Message message) {
-        final TextColor color = getAuthorColor(message);
+    private Component formatAuthorName(Message message) {
+        final TextColor color = this.getAuthorColor(message);
         final TextComponent discriminatedName = new TextComponent(message.getAuthor().getDiscriminatedName());
 
         return new TextComponent(message.getAuthor().getDisplayName())
@@ -53,18 +59,18 @@ public final class DiscordMessageFormatter {
                 );
     }
 
-    private static MutableComponent formatAttachment(MessageAttachment attachment) {
+    private MutableComponent formatAttachment(MessageAttachment attachment) {
         final String url = attachment.getUrl().toString();
         final Style attachmentStyle = Style.EMPTY
                 .withColor(ChatFormatting.BLUE).withUnderlined(true)
                 .withClickEvent(new ClickEvent(ClickEvent.Action.OPEN_URL, url))
                 .withHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, new TextComponent(url).withStyle(ChatFormatting.BLUE, ChatFormatting.UNDERLINE)));
 
-        final String description = getAttachmentDescription(attachment);
+        final String description = this.getAttachmentDescription(attachment);
         return new TextComponent(description).withStyle(attachmentStyle);
     }
 
-    private static String getAttachmentDescription(MessageAttachment attachment) {
+    private String getAttachmentDescription(MessageAttachment attachment) {
         final String fileName = attachment.getFileName();
         final String size = FileUtils.byteCountToDisplaySize(attachment.getSize());
 
@@ -77,7 +83,7 @@ public final class DiscordMessageFormatter {
         }
     }
 
-    private static TextColor getAuthorColor(Message message) {
+    private TextColor getAuthorColor(Message message) {
         return message.getAuthor().getRoleColor()
                 .map(value -> TextColor.fromRgb(value.getRGB() & 0xFFFFFF))
                 .orElseGet(() -> TextColor.fromLegacyFormat(ChatFormatting.WHITE));
