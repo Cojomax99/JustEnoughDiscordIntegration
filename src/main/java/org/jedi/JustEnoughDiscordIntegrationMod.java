@@ -60,7 +60,7 @@ public class JustEnoughDiscordIntegrationMod {
     private static ForgeConfigSpec.ConfigValue<String> serverStoppedEntry;
     private static ForgeConfigSpec.ConfigValue<String> serverStartedEntry;
     private static ForgeConfigSpec.ConfigValue<String> serverShuttingDownEntry;
-    public static ForgeConfigSpec.ConfigValue<String> replyingToEntry;
+    private static ForgeConfigSpec.ConfigValue<String> replyingToEntry;
 
     private static ForgeConfigSpec.ConfigValue<String> botTokenEntry;
     private static ForgeConfigSpec.ConfigValue<List<? extends String>> webhookEntries;
@@ -69,6 +69,8 @@ public class JustEnoughDiscordIntegrationMod {
     private static DiscordApiBuilder discordBuilder;
     private static Optional<DiscordApi> discord = Optional.empty();
     private static Optional<DiscordWebhooks> webhooks = Optional.empty();
+
+    private static DiscordMessageFormatter messageFormatter = new DiscordMessageFormatter("replying to");
 
     static {
         ForgeConfigSpec.Builder configBuilder = new ForgeConfigSpec.Builder();
@@ -132,6 +134,8 @@ public class JustEnoughDiscordIntegrationMod {
 
     private void loadModConfig(ModConfigEvent event) {
         loadWebhooks();
+
+        messageFormatter = new DiscordMessageFormatter(replyingToEntry.get());
     }
 
     private static void loadWebhooks() {
@@ -220,7 +224,7 @@ public class JustEnoughDiscordIntegrationMod {
             if (!message.getAuthor().isRegularUser()) return;
             if (!readChannels.get().contains(event.getChannel().getId())) return;
 
-            Component chatMessage = DiscordMessageFormatter.format(message);
+            Component chatMessage = messageFormatter.format(message);
             ServerLifecycleHooks.getCurrentServer().getPlayerList().broadcastMessage(chatMessage, ChatType.CHAT, Util.NIL_UUID);
         }
     }
