@@ -39,10 +39,10 @@ import org.javacord.api.listener.message.MessageCreateListener;
 
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
-import java.util.function.Consumer;
 
 @Mod("jedi")
 public class JustEnoughDiscordIntegrationMod {
@@ -145,7 +145,10 @@ public class JustEnoughDiscordIntegrationMod {
 
     @SubscribeEvent
     public void onServerShutdown(FMLServerStoppedEvent event) {
-        discord.ifPresent(dc -> sendMessage(serverStoppedEntry.get(), DiscordApi::disconnect));
+        sendMessage(serverStoppedEntry.get()).ifPresent(future -> {
+            final DiscordApi discord = future.join();
+            discord.disconnect();
+        });
     }
 
     @SubscribeEvent
@@ -209,21 +212,16 @@ public class JustEnoughDiscordIntegrationMod {
         }
     }
 
-    private static void sendMessage(final String message) {
-        sendMessage(message, w -> {});
-    }
+    private static Optional<CompletableFuture<DiscordApi>> sendMessage(final String message) {
+        return discord.map(dc -> {
+            List<CompletableFuture<Void>> futures = new ArrayList<>();
+            webhookEntries.get().forEach(webhookUrl -> {
+                CompletableFuture<Void> future = dc.getIncomingWebhookByUrl(webhookUrl)
+                        .thenCompose(wh -> wh.sendMessage(message).thenApply(m -> null));
+                futures.add(future);
+            });
 
-    private static void sendMessage(final String message, final Consumer<DiscordApi> afterSend) {
-        discord.ifPresent(dc -> {
-            try {
-                webhookEntries.get().forEach(webhookUrl -> {
-                    final CompletableFuture<IncomingWebhook> webhook = dc.getIncomingWebhookByUrl(webhookUrl);
-                    webhook.join().sendMessage(message);
-                });
-                afterSend.accept(dc);
-            } catch (Exception exception) {
-                exception.printStackTrace();
-            }
+            return CompletableFuture.allOf(futures.toArray(CompletableFuture[]::new)).thenApply(v -> dc);
         });
     }
 
