@@ -13,11 +13,13 @@ import net.minecraftforge.event.ServerChatEvent;
 import net.minecraftforge.event.entity.living.LivingDeathEvent;
 import net.minecraftforge.event.entity.player.AdvancementEvent;
 import net.minecraftforge.event.entity.player.PlayerEvent;
+import net.minecraftforge.eventbus.api.IEventBus;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.IExtensionPoint;
 import net.minecraftforge.fml.ModLoadingContext;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.config.ModConfig;
+import net.minecraftforge.fml.event.config.ModConfigEvent;
 import net.minecraftforge.fml.event.lifecycle.FMLCommonSetupEvent;
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
 import net.minecraftforge.fmllegacy.network.FMLNetworkConstants;
@@ -33,13 +35,12 @@ import org.javacord.api.entity.message.Message;
 import org.javacord.api.entity.message.WebhookMessageBuilder;
 import org.javacord.api.entity.message.mention.AllowedMentions;
 import org.javacord.api.entity.message.mention.AllowedMentionsBuilder;
-import org.javacord.api.entity.webhook.IncomingWebhook;
 import org.javacord.api.event.message.MessageCreateEvent;
+import org.javacord.api.listener.channel.server.text.WebhooksUpdateListener;
 import org.javacord.api.listener.message.MessageCreateListener;
 
 import java.net.MalformedURLException;
 import java.net.URL;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
@@ -67,6 +68,7 @@ public class JustEnoughDiscordIntegrationMod {
 
     private static DiscordApiBuilder discordBuilder;
     private static Optional<DiscordApi> discord = Optional.empty();
+    private static Optional<DiscordWebhooks> webhooks = Optional.empty();
 
     static {
         ForgeConfigSpec.Builder configBuilder = new ForgeConfigSpec.Builder();
@@ -75,7 +77,10 @@ public class JustEnoughDiscordIntegrationMod {
     }
 
     public JustEnoughDiscordIntegrationMod() {
-        FMLJavaModLoadingContext.get().getModEventBus().addListener(this::setup);
+        IEventBus modBus = FMLJavaModLoadingContext.get().getModEventBus();
+        modBus.addListener(this::setup);
+        modBus.addListener(this::loadModConfig);
+
         ModLoadingContext.get().registerConfig(ModConfig.Type.SERVER, SERVER_CONFIG);
         MinecraftForge.EVENT_BUS.register(this);
 
@@ -121,7 +126,16 @@ public class JustEnoughDiscordIntegrationMod {
     private void setup(final FMLCommonSetupEvent event) {
         discordBuilder = new DiscordApiBuilder();
         discordBuilder.addMessageCreateListener(new DiscordMessageListener());
+        discordBuilder.addWebhooksUpdateListener((WebhooksUpdateListener) e -> loadWebhooks());
         discordBuilder.setShutdownHookRegistrationEnabled(false);
+    }
+
+    private void loadModConfig(ModConfigEvent event) {
+        loadWebhooks();
+    }
+
+    private static void loadWebhooks() {
+        webhooks = discord.map(discord -> DiscordWebhooks.load(discord, webhookEntries.get()));
     }
 
     @SubscribeEvent
@@ -131,6 +145,7 @@ public class JustEnoughDiscordIntegrationMod {
             discordBuilder.setToken(token);
             discordBuilder.login().thenAccept(dcObject -> {
                 discord = Optional.of(dcObject);
+                loadWebhooks();
                 sendMessage(serverStartedEntry.get());
             });
         } else {
@@ -145,10 +160,8 @@ public class JustEnoughDiscordIntegrationMod {
 
     @SubscribeEvent
     public void onServerShutdown(FMLServerStoppedEvent event) {
-        sendMessage(serverStoppedEntry.get()).ifPresent(future -> {
-            final DiscordApi discord = future.join();
-            discord.disconnect();
-        });
+        sendMessage(serverStoppedEntry.get()).join();
+        discord.ifPresent(DiscordApi::disconnect);
     }
 
     @SubscribeEvent
@@ -212,36 +225,22 @@ public class JustEnoughDiscordIntegrationMod {
         }
     }
 
-    private static Optional<CompletableFuture<DiscordApi>> sendMessage(final String message) {
-        return discord.map(dc -> {
-            List<CompletableFuture<Void>> futures = new ArrayList<>();
-            webhookEntries.get().forEach(webhookUrl -> {
-                CompletableFuture<Void> future = dc.getIncomingWebhookByUrl(webhookUrl)
-                        .thenCompose(wh -> wh.sendMessage(message).thenApply(m -> null));
-                futures.add(future);
-            });
-
-            return CompletableFuture.allOf(futures.toArray(CompletableFuture[]::new)).thenApply(v -> dc);
-        });
+    private static CompletableFuture<Void> sendMessage(final String message) {
+        return webhooks.map(webhooks -> {
+                    final WebhookMessageBuilder builder = new WebhookMessageBuilder().append(message).setAllowedMentions(NO_MENTIONS);
+                    return webhooks.send(builder);
+                })
+                .orElseGet(() -> CompletableFuture.completedFuture(null));
     }
 
     private static void sendMessage(final String message, final String username, final URL url) {
-        discord.ifPresent(dc -> {
-            try {
-                webhookEntries.get().forEach(webhookUrl -> {
-                    final CompletableFuture<IncomingWebhook> w = dc.getIncomingWebhookByUrl(webhookUrl);
-                    w.thenAccept(wh -> {
-                        new WebhookMessageBuilder()
-                                .append(message)
-                                .setDisplayName(username)
-                                .setDisplayAvatar(url)
-                                .setAllowedMentions(NO_MENTIONS)
-                                .send(wh);
-                    });
-                });
-            } catch (Exception exception) {
-                exception.printStackTrace();
-            }
+        webhooks.ifPresent(webhooks -> {
+            webhooks.send(new WebhookMessageBuilder()
+                    .append(message)
+                    .setDisplayName(username)
+                    .setDisplayAvatar(url)
+                    .setAllowedMentions(NO_MENTIONS)
+            );
         });
     }
 
