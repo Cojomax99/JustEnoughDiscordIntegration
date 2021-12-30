@@ -4,10 +4,7 @@ import net.minecraft.ChatFormatting;
 import net.minecraft.Util;
 import net.minecraft.advancements.Advancement;
 import net.minecraft.network.chat.ChatType;
-import net.minecraft.network.chat.Style;
-import net.minecraft.network.chat.TextColor;
-import net.minecraft.network.chat.TextComponent;
-import net.minecraft.network.chat.TranslatableComponent;
+import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraftforge.common.ForgeConfigSpec;
@@ -17,11 +14,13 @@ import net.minecraftforge.event.entity.living.LivingDeathEvent;
 import net.minecraftforge.event.entity.player.AdvancementEvent;
 import net.minecraftforge.event.entity.player.PlayerEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
+import net.minecraftforge.fml.IExtensionPoint;
 import net.minecraftforge.fml.ModLoadingContext;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.config.ModConfig;
 import net.minecraftforge.fml.event.lifecycle.FMLCommonSetupEvent;
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
+import net.minecraftforge.fmllegacy.network.FMLNetworkConstants;
 import net.minecraftforge.fmllegacy.server.ServerLifecycleHooks;
 import net.minecraftforge.fmlserverevents.FMLServerStartingEvent;
 import net.minecraftforge.fmlserverevents.FMLServerStoppedEvent;
@@ -31,11 +30,13 @@ import org.apache.logging.log4j.Logger;
 import org.javacord.api.DiscordApi;
 import org.javacord.api.DiscordApiBuilder;
 import org.javacord.api.entity.message.Message;
+import org.javacord.api.entity.message.WebhookMessageBuilder;
+import org.javacord.api.entity.message.mention.AllowedMentions;
+import org.javacord.api.entity.message.mention.AllowedMentionsBuilder;
 import org.javacord.api.entity.webhook.IncomingWebhook;
 import org.javacord.api.event.message.MessageCreateEvent;
 import org.javacord.api.listener.message.MessageCreateListener;
 
-import java.awt.*;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.List;
@@ -50,12 +51,15 @@ public class JustEnoughDiscordIntegrationMod {
     private static final ForgeConfigSpec SERVER_CONFIG;
     private static final String VISAGE_URL = "https://visage.surgeplay.com/bust/128/%s.png";
 
+    private static final AllowedMentions NO_MENTIONS = new AllowedMentionsBuilder().build();
+
     private static ForgeConfigSpec.ConfigValue<String> joinedGameEntry;
     private static ForgeConfigSpec.ConfigValue<String> leftGameEntry;
     private static ForgeConfigSpec.ConfigValue<String> advancementEntry;
     private static ForgeConfigSpec.ConfigValue<String> serverStoppedEntry;
     private static ForgeConfigSpec.ConfigValue<String> serverStartedEntry;
     private static ForgeConfigSpec.ConfigValue<String> serverShuttingDownEntry;
+    public static ForgeConfigSpec.ConfigValue<String> replyingToEntry;
 
     private static ForgeConfigSpec.ConfigValue<String> botTokenEntry;
     private static ForgeConfigSpec.ConfigValue<List<? extends String>> webhookEntries;
@@ -74,6 +78,13 @@ public class JustEnoughDiscordIntegrationMod {
         FMLJavaModLoadingContext.get().getModEventBus().addListener(this::setup);
         ModLoadingContext.get().registerConfig(ModConfig.Type.SERVER, SERVER_CONFIG);
         MinecraftForge.EVENT_BUS.register(this);
+
+        ModLoadingContext.get().registerExtensionPoint(IExtensionPoint.DisplayTest.class, () -> {
+            return new IExtensionPoint.DisplayTest(
+                    () -> FMLNetworkConstants.IGNORESERVERONLY,
+                    (a, b) -> true
+            );
+        });
     }
 
     private static void setupConfig(ForgeConfigSpec.Builder builder) {
@@ -103,6 +114,8 @@ public class JustEnoughDiscordIntegrationMod {
                 .define("server_stopped", "Server stopped!");
         serverShuttingDownEntry = builder.comment(" Posted in discord when the server begins shutting down")
                 .define("server_shutting_down", "Server shutting down!");
+        replyingToEntry = builder.comment(" The text to use to relay that a Discord message is being replied to")
+                .define("replying_to", "replying to");
     }
 
     private void setup(final FMLCommonSetupEvent event) {
@@ -191,36 +204,7 @@ public class JustEnoughDiscordIntegrationMod {
             if (!message.getAuthor().isRegularUser()) return;
             if (!readChannels.get().contains(event.getChannel().getId())) return;
 
-            final Optional<Message> parentMessage = message.getReferencedMessage();
-
-            final Optional<Color> color = event.getMessageAuthor().getRoleColor();
-            final TextColor textColor;
-            textColor = color.map(value -> TextColor.fromRgb(value.getRGB())).orElseGet(() -> TextColor.fromLegacyFormat(ChatFormatting.WHITE));
-
-            final TextComponent chatMessage = new TextComponent("<");
-
-            final TextComponent tc = new TextComponent("");
-            tc.withStyle(Style.EMPTY.withColor(textColor));
-            tc.append(String.format("%s", event.getMessageAuthor().getDisplayName()));
-
-            final TextComponent other = new TextComponent("");
-            other.append(event.getReadableMessageContent());
-
-            chatMessage.append(tc);
-            if (parentMessage.isPresent()) {
-                final Optional<Color> parentColor = parentMessage.get().getAuthor().getRoleColor();
-                final TextColor parentTextColor;
-                parentTextColor = parentColor.map(value -> TextColor.fromRgb(value.getRGB())).orElseGet(() -> TextColor.fromLegacyFormat(ChatFormatting.WHITE));
-
-                chatMessage.append(" ").append(new TranslatableComponent("jedi.replying_to")).append(" ");
-                final TextComponent parentChatMessage = new TextComponent("");
-                parentChatMessage.withStyle(Style.EMPTY.withColor(parentTextColor));
-                parentChatMessage.append(parentMessage.get().getAuthor().getDisplayName());
-                chatMessage.append(parentChatMessage);
-            }
-            chatMessage.append("> ");
-            chatMessage.append(other);
-
+            Component chatMessage = DiscordMessageFormatter.format(message);
             ServerLifecycleHooks.getCurrentServer().getPlayerList().broadcastMessage(chatMessage, ChatType.CHAT, Util.NIL_UUID);
         }
     }
@@ -248,7 +232,14 @@ public class JustEnoughDiscordIntegrationMod {
             try {
                 webhookEntries.get().forEach(webhookUrl -> {
                     final CompletableFuture<IncomingWebhook> w = dc.getIncomingWebhookByUrl(webhookUrl);
-                    w.thenAccept(wh -> wh.sendMessage(message, username, url));
+                    w.thenAccept(wh -> {
+                        new WebhookMessageBuilder()
+                                .append(message)
+                                .setDisplayName(username)
+                                .setDisplayAvatar(url)
+                                .setAllowedMentions(NO_MENTIONS)
+                                .send(wh);
+                    });
                 });
             } catch (Exception exception) {
                 exception.printStackTrace();
