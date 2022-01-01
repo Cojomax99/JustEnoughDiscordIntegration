@@ -13,6 +13,9 @@ import net.minecraftforge.event.ServerChatEvent;
 import net.minecraftforge.event.entity.living.LivingDeathEvent;
 import net.minecraftforge.event.entity.player.AdvancementEvent;
 import net.minecraftforge.event.entity.player.PlayerEvent;
+import net.minecraftforge.event.server.ServerStartingEvent;
+import net.minecraftforge.event.server.ServerStoppedEvent;
+import net.minecraftforge.event.server.ServerStoppingEvent;
 import net.minecraftforge.eventbus.api.IEventBus;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.IExtensionPoint;
@@ -22,11 +25,7 @@ import net.minecraftforge.fml.config.ModConfig;
 import net.minecraftforge.fml.event.config.ModConfigEvent;
 import net.minecraftforge.fml.event.lifecycle.FMLCommonSetupEvent;
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
-import net.minecraftforge.fmllegacy.network.FMLNetworkConstants;
-import net.minecraftforge.fmllegacy.server.ServerLifecycleHooks;
-import net.minecraftforge.fmlserverevents.FMLServerStartingEvent;
-import net.minecraftforge.fmlserverevents.FMLServerStoppedEvent;
-import net.minecraftforge.fmlserverevents.FMLServerStoppingEvent;
+import net.minecraftforge.server.ServerLifecycleHooks;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.javacord.api.DiscordApi;
@@ -44,6 +43,8 @@ import java.net.URL;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
+
+import static net.minecraftforge.network.NetworkConstants.IGNORESERVERONLY;
 
 @Mod("jedi")
 public class JustEnoughDiscordIntegrationMod {
@@ -88,7 +89,7 @@ public class JustEnoughDiscordIntegrationMod {
 
         ModLoadingContext.get().registerExtensionPoint(IExtensionPoint.DisplayTest.class, () -> {
             return new IExtensionPoint.DisplayTest(
-                    () -> FMLNetworkConstants.IGNORESERVERONLY,
+                    () -> IGNORESERVERONLY,
                     (a, b) -> true
             );
         });
@@ -143,7 +144,7 @@ public class JustEnoughDiscordIntegrationMod {
     }
 
     @SubscribeEvent
-    public void onServerStarting(FMLServerStartingEvent event) {
+    public void onServerStarting(ServerStartingEvent event) {
         final String token = botTokenEntry.get();
         if (token.length() > 0) {
             discordBuilder.setToken(token);
@@ -158,12 +159,12 @@ public class JustEnoughDiscordIntegrationMod {
     }
 
     @SubscribeEvent
-    public void onServerShuttingDown(FMLServerStoppingEvent event) {
+    public void onServerShuttingDown(ServerStoppingEvent event) {
         sendMessage(serverShuttingDownEntry.get());
     }
 
     @SubscribeEvent
-    public void onServerShutdown(FMLServerStoppedEvent event) {
+    public void onServerShutdown(ServerStoppedEvent event) {
         sendMessage(serverStoppedEntry.get()).join();
         discord.ifPresent(DiscordApi::disconnect);
     }
