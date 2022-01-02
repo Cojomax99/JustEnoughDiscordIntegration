@@ -51,7 +51,7 @@ This will be located at: `<worldfolder>/serverconfig/jedi-server.toml`.
 
 This file has 3 important settings:
 
-* `bot_token` - You can find this on the Bot page from Step 1 above. It will be next to the image of your bot. You can click the "copy" button to copy it to your clipboard, and then paste it in the quotes provided for this item. Ex: `= "jfiaweofawoehawefawiefhaiwefwa0-efahwefawewe-eee"`
+* `bot_token` - You can find this on the Bot page from Step 1 above. It will be next to the image of your bot. You can click the "copy" button to copy it to your clipboard, and then paste it in the quotes provided for this item. Ex: `= "OTI3MTU4MDY0NjY1MjE0OTk4.YdGJPA.SJTj5Qczbcbno2d7o8ci0fjSts4"`
 * `webhook_urls` - Remember the webhook URLs we saved from earlier? Get those now, and paste them in like follows: ` = ["url1", "url2", "url3"]`
 * `read_channels` - These are the channel IDs that the bot sends from Discord -> Minecraft. You can right click on a channel and click "Copy ID" to get the ID of a channel. You can have as many channels as you want here, just make sure your bot has permission to read from them. Ex: ` = [12232423423, 93792672323328]`
 
