@@ -1,5 +1,6 @@
 package org.jedi;
 
+import com.google.common.collect.Maps;
 import net.minecraft.ChatFormatting;
 import net.minecraft.Util;
 import net.minecraft.advancements.Advancement;
@@ -41,7 +42,9 @@ import org.javacord.api.listener.message.MessageCreateListener;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
 import static net.minecraftforge.network.NetworkConstants.IGNORESERVERONLY;
@@ -50,8 +53,10 @@ import static net.minecraftforge.network.NetworkConstants.IGNORESERVERONLY;
 public class JustEnoughDiscordIntegrationMod {
     private static final Logger LOGGER = LogManager.getLogger(JustEnoughDiscordIntegrationMod.class);
 
+    private static final Map<UUID, String> CACHE_BUSTS = Maps.newHashMap();
+
     private static final ForgeConfigSpec SERVER_CONFIG;
-    private static final String VISAGE_URL = "https://visage.surgeplay.com/bust/128/%s.png";
+    private static final String VISAGE_URL = "https://visage.surgeplay.com/bust/128/%s.png?bust=%s";
 
     private static final AllowedMentions NO_MENTIONS = new AllowedMentionsBuilder().build();
 
@@ -165,6 +170,7 @@ public class JustEnoughDiscordIntegrationMod {
 
     @SubscribeEvent
     public void onServerShutdown(ServerStoppedEvent event) {
+        CACHE_BUSTS.clear();
         sendMessage(serverStoppedEntry.get()).join();
         discord.ifPresent(DiscordApi::disconnect);
     }
@@ -179,11 +185,13 @@ public class JustEnoughDiscordIntegrationMod {
 
     @SubscribeEvent
     public void playerLeave(PlayerEvent.PlayerLoggedOutEvent event) {
+        CACHE_BUSTS.remove(event.getPlayer().getUUID());
         sendMessage(String.format(leftGameEntry.get(), getPlayerName(event)));
     }
 
     @SubscribeEvent
     public void playerJoin(PlayerEvent.PlayerLoggedInEvent event) {
+        CACHE_BUSTS.put(event.getPlayer().getUUID(), "" + System.currentTimeMillis());
         sendMessage(String.format(joinedGameEntry.get(), getPlayerName(event)));
     }
 
@@ -206,8 +214,9 @@ public class JustEnoughDiscordIntegrationMod {
             final String username = event.getUsername();
             final String message = event.getMessage();
             final String uuid = event.getPlayer().getStringUUID();
+            final String cacheBust = CACHE_BUSTS.getOrDefault(event.getPlayer().getUUID(), username);
 
-            sendMessage(message, username, new URL(String.format(VISAGE_URL, uuid)));
+            sendMessage(message, username, new URL(String.format(VISAGE_URL, uuid, cacheBust)));
         } catch (MalformedURLException e) {
             e.printStackTrace();
         }
