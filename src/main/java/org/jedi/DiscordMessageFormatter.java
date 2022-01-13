@@ -1,13 +1,12 @@
 package org.jedi;
 
-import net.minecraft.ChatFormatting;
-import net.minecraft.network.chat.ClickEvent;
-import net.minecraft.network.chat.Component;
-import net.minecraft.network.chat.HoverEvent;
-import net.minecraft.network.chat.MutableComponent;
-import net.minecraft.network.chat.Style;
-import net.minecraft.network.chat.TextColor;
-import net.minecraft.network.chat.TextComponent;
+import net.minecraft.util.text.TextFormatting;
+import net.minecraft.util.text.event.ClickEvent;
+import net.minecraft.util.text.IFormattableTextComponent;
+import net.minecraft.util.text.event.HoverEvent;
+import net.minecraft.util.text.Style;
+import net.minecraft.util.text.Color;
+import net.minecraft.util.text.StringTextComponent;
 import org.apache.commons.io.FileUtils;
 import org.javacord.api.entity.message.Message;
 import org.javacord.api.entity.message.MessageAttachment;
@@ -22,23 +21,23 @@ public final class DiscordMessageFormatter {
         this.replyingToText = replyingToText;
     }
 
-    public Component format(Message message) {
-        final TextComponent header = new TextComponent("<@");
+    public IFormattableTextComponent format(Message message) {
+        final StringTextComponent header = new StringTextComponent("<@");
         header.append(this.formatAuthorName(message));
         header.append("> ");
 
         final MultilineBuilder builder = new MultilineBuilder(header);
 
         message.getReferencedMessage().ifPresent(parentMessage -> {
-            final MutableComponent replyingTo = new TextComponent(this.replyingToText + " @")
-                    .withStyle(ChatFormatting.GRAY, ChatFormatting.ITALIC)
+            final IFormattableTextComponent replyingTo = new StringTextComponent(this.replyingToText + " @")
+                    .withStyle(TextFormatting.GRAY, TextFormatting.ITALIC)
                     .append(this.formatAuthorName(parentMessage));
             builder.appendLine(replyingTo);
         });
 
         final String[] lines = message.getReadableContent().split("\n");
         for (String line : lines) {
-            builder.appendLine(new TextComponent(line));
+            builder.appendLine(new StringTextComponent(line));
         }
 
         for (MessageAttachment attachment : message.getAttachments()) {
@@ -48,26 +47,26 @@ public final class DiscordMessageFormatter {
         return builder.build();
     }
 
-    private Component formatAuthorName(Message message) {
-        final TextColor color = this.getAuthorColor(message);
-        final TextComponent discriminatedName = new TextComponent(message.getAuthor().getDiscriminatedName());
+    private IFormattableTextComponent formatAuthorName(Message message) {
+        final Color color = this.getAuthorColor(message);
+        final StringTextComponent discriminatedName = new StringTextComponent(message.getAuthor().getDiscriminatedName());
 
-        return new TextComponent(message.getAuthor().getDisplayName())
+        return new StringTextComponent(message.getAuthor().getDisplayName())
                 .withStyle(Style.EMPTY
                         .withColor(color)
                         .withHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, discriminatedName))
                 );
     }
 
-    private MutableComponent formatAttachment(MessageAttachment attachment) {
+    private IFormattableTextComponent formatAttachment(MessageAttachment attachment) {
         final String url = attachment.getUrl().toString();
         final Style attachmentStyle = Style.EMPTY
-                .withColor(ChatFormatting.BLUE).withUnderlined(true)
+                .withColor(TextFormatting.BLUE).withUnderlined(true)
                 .withClickEvent(new ClickEvent(ClickEvent.Action.OPEN_URL, url))
-                .withHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, new TextComponent(url).withStyle(ChatFormatting.BLUE, ChatFormatting.UNDERLINE)));
+                .withHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, new StringTextComponent(url).withStyle(TextFormatting.BLUE, TextFormatting.UNDERLINE)));
 
         final String description = this.getAttachmentDescription(attachment);
-        return new TextComponent(description).withStyle(attachmentStyle);
+        return new StringTextComponent(description).withStyle(attachmentStyle);
     }
 
     private String getAttachmentDescription(MessageAttachment attachment) {
@@ -83,28 +82,28 @@ public final class DiscordMessageFormatter {
         }
     }
 
-    private TextColor getAuthorColor(Message message) {
+    private Color getAuthorColor(Message message) {
         return message.getAuthor().getRoleColor()
-                .map(value -> TextColor.fromRgb(value.getRGB() & 0xFFFFFF))
-                .orElseGet(() -> TextColor.fromLegacyFormat(ChatFormatting.WHITE));
+                .map(value -> Color.fromRgb(value.getRGB() & 0xFFFFFF))
+                .orElseGet(() -> Color.fromLegacyFormat(TextFormatting.WHITE));
     }
 
     private static final class MultilineBuilder {
-        private static final MutableComponent NEW_LINE = new TextComponent("\n | ").withStyle(ChatFormatting.GRAY);
+        private static final IFormattableTextComponent NEW_LINE = new StringTextComponent("\n | ").withStyle(TextFormatting.GRAY);
 
-        private final MutableComponent header;
-        private final List<MutableComponent> lines = new ArrayList<>();
+        private final IFormattableTextComponent header;
+        private final List<IFormattableTextComponent> lines = new ArrayList<>();
 
-        public MultilineBuilder(MutableComponent header) {
+        public MultilineBuilder(IFormattableTextComponent header) {
             this.header = header;
         }
 
-        public void appendLine(MutableComponent line) {
+        public void appendLine(IFormattableTextComponent line) {
             this.lines.add(line);
         }
 
-        public Component build() {
-            MutableComponent result = this.header;
+        public IFormattableTextComponent build() {
+            IFormattableTextComponent result = this.header;
             for (int i = 0; i < this.lines.size(); i++) {
                 if (i > 0) result.append(NEW_LINE);
                 result.append(this.lines.get(i));

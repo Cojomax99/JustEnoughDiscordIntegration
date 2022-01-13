@@ -50,6 +50,6 @@ public final class DiscordWebhooks {
             futures.add(pending.thenCompose(message::send));
         }
 
-        return CompletableFuture.allOf(futures.toArray(CompletableFuture[]::new));
+        return CompletableFuture.allOf(futures.toArray(new CompletableFuture[] {}));
     }
 }
