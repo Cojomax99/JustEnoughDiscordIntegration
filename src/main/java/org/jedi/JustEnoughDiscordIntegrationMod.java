@@ -1,12 +1,12 @@
 package org.jedi;
 
-import net.minecraft.ChatFormatting;
-import net.minecraft.Util;
+import net.minecraft.util.text.TextFormatting;
+import net.minecraft.util.Util;
 import net.minecraft.advancements.Advancement;
-import net.minecraft.network.chat.ChatType;
-import net.minecraft.network.chat.Component;
-import net.minecraft.world.entity.EntityType;
-import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.util.text.ChatType;
+import net.minecraft.util.text.IFormattableTextComponent;
+import net.minecraft.entity.EntityType;
+import net.minecraft.entity.LivingEntity;
 import net.minecraftforge.common.ForgeConfigSpec;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.event.ServerChatEvent;
@@ -15,18 +15,18 @@ import net.minecraftforge.event.entity.player.AdvancementEvent;
 import net.minecraftforge.event.entity.player.PlayerEvent;
 import net.minecraftforge.eventbus.api.IEventBus;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
-import net.minecraftforge.fml.IExtensionPoint;
+import net.minecraftforge.fml.ExtensionPoint;
 import net.minecraftforge.fml.ModLoadingContext;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.config.ModConfig;
-import net.minecraftforge.fml.event.config.ModConfigEvent;
+import net.minecraftforge.fml.config.ModConfig.ModConfigEvent;
 import net.minecraftforge.fml.event.lifecycle.FMLCommonSetupEvent;
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
-import net.minecraftforge.fmllegacy.network.FMLNetworkConstants;
-import net.minecraftforge.fmllegacy.server.ServerLifecycleHooks;
-import net.minecraftforge.fmlserverevents.FMLServerStartingEvent;
-import net.minecraftforge.fmlserverevents.FMLServerStoppedEvent;
-import net.minecraftforge.fmlserverevents.FMLServerStoppingEvent;
+import net.minecraftforge.fml.network.FMLNetworkConstants;
+import net.minecraftforge.fml.server.ServerLifecycleHooks;
+import net.minecraftforge.fml.event.server.FMLServerStartingEvent;
+import net.minecraftforge.fml.event.server.FMLServerStoppedEvent;
+import net.minecraftforge.fml.event.server.FMLServerStoppingEvent;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.javacord.api.DiscordApi;
@@ -38,9 +38,11 @@ import org.javacord.api.entity.message.mention.AllowedMentionsBuilder;
 import org.javacord.api.event.message.MessageCreateEvent;
 import org.javacord.api.listener.channel.server.text.WebhooksUpdateListener;
 import org.javacord.api.listener.message.MessageCreateListener;
+import org.apache.commons.lang3.tuple.Pair;
 
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
@@ -86,8 +88,8 @@ public class JustEnoughDiscordIntegrationMod {
         ModLoadingContext.get().registerConfig(ModConfig.Type.SERVER, SERVER_CONFIG);
         MinecraftForge.EVENT_BUS.register(this);
 
-        ModLoadingContext.get().registerExtensionPoint(IExtensionPoint.DisplayTest.class, () -> {
-            return new IExtensionPoint.DisplayTest(
+        ModLoadingContext.get().registerExtensionPoint(ExtensionPoint.DISPLAYTEST, () -> {
+            return Pair.of (
                     () -> FMLNetworkConstants.IGNORESERVERONLY,
                     (a, b) -> true
             );
@@ -102,10 +104,10 @@ public class JustEnoughDiscordIntegrationMod {
                 .define("bot_token", "");
 
         webhookEntries = builder.comment(" List of webhook URLs to post to from the game")
-                .defineList("webhook_urls", List.of(""), entry -> true);
+                .defineList("webhook_urls", Arrays.asList(""), entry -> true);
 
         readChannels = builder.comment(" List of IDs of discord channels to listen to")
-                .defineList("read_channels", List.of(), entry -> true);
+                .defineList("read_channels", Arrays.asList(), entry -> true);
 
         builder.push("Translations");
 
@@ -224,7 +226,7 @@ public class JustEnoughDiscordIntegrationMod {
             if (!message.getAuthor().isRegularUser()) return;
             if (!readChannels.get().contains(event.getChannel().getId())) return;
 
-            Component chatMessage = messageFormatter.format(message);
+            IFormattableTextComponent chatMessage = messageFormatter.format(message);
             ServerLifecycleHooks.getCurrentServer().getPlayerList().broadcastMessage(chatMessage, ChatType.CHAT, Util.NIL_UUID);
         }
     }
@@ -249,6 +251,6 @@ public class JustEnoughDiscordIntegrationMod {
     }
 
     private static String strip(final String original) {
-        return ChatFormatting.stripFormatting(original);
+        return TextFormatting.stripFormatting(original);
     }
 }
