@@ -235,7 +235,7 @@ public class JustEnoughDiscordIntegrationMod {
             if (!readChannels.get().contains(event.getChannel().getId())) return;
 
             Component chatMessage = messageFormatter.format(message);
-            ServerLifecycleHooks.getCurrentServer().getPlayerList().broadcastMessage(chatMessage, ChatType.CHAT, Util.NIL_UUID);
+            ServerLifecycleHooks.getCurrentServer().getPlayerList().broadcastSystemMessage(chatMessage, ChatType.SYSTEM);
         }
     }
 
