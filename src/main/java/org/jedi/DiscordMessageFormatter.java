@@ -7,7 +7,6 @@ import net.minecraft.network.chat.HoverEvent;
 import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.network.chat.Style;
 import net.minecraft.network.chat.TextColor;
-import net.minecraft.network.chat.TextComponent;
 import org.apache.commons.io.FileUtils;
 import org.javacord.api.entity.message.Message;
 import org.javacord.api.entity.message.MessageAttachment;
@@ -23,14 +22,14 @@ public final class DiscordMessageFormatter {
     }
 
     public Component format(Message message) {
-        final TextComponent header = new TextComponent("<@");
+        final MutableComponent header = Component.literal("<@");
         header.append(this.formatAuthorName(message));
         header.append("> ");
 
         final MultilineBuilder builder = new MultilineBuilder(header);
 
         message.getReferencedMessage().ifPresent(parentMessage -> {
-            final MutableComponent replyingTo = new TextComponent(this.replyingToText + " @")
+            final MutableComponent replyingTo = Component.literal(this.replyingToText + " @")
                     .withStyle(ChatFormatting.GRAY, ChatFormatting.ITALIC)
                     .append(this.formatAuthorName(parentMessage));
             builder.appendLine(replyingTo);
@@ -38,7 +37,7 @@ public final class DiscordMessageFormatter {
 
         final String[] lines = message.getReadableContent().split("\n");
         for (String line : lines) {
-            builder.appendLine(new TextComponent(line));
+            builder.appendLine(Component.literal(line));
         }
 
         for (MessageAttachment attachment : message.getAttachments()) {
@@ -50,9 +49,9 @@ public final class DiscordMessageFormatter {
 
     private Component formatAuthorName(Message message) {
         final TextColor color = this.getAuthorColor(message);
-        final TextComponent discriminatedName = new TextComponent(message.getAuthor().getDiscriminatedName());
+        final MutableComponent discriminatedName = Component.literal(message.getAuthor().getDiscriminatedName());
 
-        return new TextComponent(message.getAuthor().getDisplayName())
+        return Component.literal(message.getAuthor().getDisplayName())
                 .withStyle(Style.EMPTY
                         .withColor(color)
                         .withHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, discriminatedName))
@@ -64,10 +63,10 @@ public final class DiscordMessageFormatter {
         final Style attachmentStyle = Style.EMPTY
                 .withColor(ChatFormatting.BLUE).withUnderlined(true)
                 .withClickEvent(new ClickEvent(ClickEvent.Action.OPEN_URL, url))
-                .withHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, new TextComponent(url).withStyle(ChatFormatting.BLUE, ChatFormatting.UNDERLINE)));
+                .withHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, Component.literal(url).withStyle(ChatFormatting.BLUE, ChatFormatting.UNDERLINE)));
 
         final String description = this.getAttachmentDescription(attachment);
-        return new TextComponent(description).withStyle(attachmentStyle);
+        return Component.literal(description).withStyle(attachmentStyle);
     }
 
     private String getAttachmentDescription(MessageAttachment attachment) {
@@ -90,7 +89,7 @@ public final class DiscordMessageFormatter {
     }
 
     private static final class MultilineBuilder {
-        private static final MutableComponent NEW_LINE = new TextComponent("\n | ").withStyle(ChatFormatting.GRAY);
+        private static final MutableComponent NEW_LINE = Component.literal("\n | ").withStyle(ChatFormatting.GRAY);
 
         private final MutableComponent header;
         private final List<MutableComponent> lines = new ArrayList<>();
