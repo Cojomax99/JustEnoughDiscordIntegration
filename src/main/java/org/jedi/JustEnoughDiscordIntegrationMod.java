@@ -177,7 +177,7 @@ public class JustEnoughDiscordIntegrationMod {
 
     @SubscribeEvent
     public void death(LivingDeathEvent event) {
-        final LivingEntity entity = event.getEntityLiving();
+        final LivingEntity entity = event.getEntity();
         if (entity.getType() == EntityType.PLAYER || entity.hasCustomName()) {
             sendMessage(strip(event.getSource().getLocalizedDeathMessage(entity).getString()));
         }
@@ -185,13 +185,13 @@ public class JustEnoughDiscordIntegrationMod {
 
     @SubscribeEvent
     public void playerLeave(PlayerEvent.PlayerLoggedOutEvent event) {
-        CACHE_BUSTS.remove(event.getPlayer().getUUID());
+        CACHE_BUSTS.remove(event.getEntity().getUUID());
         sendMessage(String.format(leftGameEntry.get(), getPlayerName(event)));
     }
 
     @SubscribeEvent
     public void playerJoin(PlayerEvent.PlayerLoggedInEvent event) {
-        CACHE_BUSTS.put(event.getPlayer().getUUID(), "" + System.currentTimeMillis());
+        CACHE_BUSTS.put(event.getEntity().getUUID(), "" + System.currentTimeMillis());
         sendMessage(String.format(joinedGameEntry.get(), getPlayerName(event)));
     }
 
@@ -201,7 +201,7 @@ public class JustEnoughDiscordIntegrationMod {
         if (advancement.getDisplay() == null) {
             return;
         }
-        final String playerName = strip(event.getPlayer().getDisplayName().getString());
+        final String playerName = strip(event.getEntity().getDisplayName().getString());
         final String advancementName = strip(advancement.getDisplay().getTitle().getString());
         final String advancementDesc = strip(advancement.getDisplay().getDescription().getString());
 
@@ -223,7 +223,7 @@ public class JustEnoughDiscordIntegrationMod {
     }
 
     private static String getPlayerName(final PlayerEvent event) {
-        return strip(event.getPlayer().getDisplayName().getString());
+        return strip(event.getEntity().getDisplayName().getString());
     }
 
     private static class DiscordMessageListener implements MessageCreateListener {
