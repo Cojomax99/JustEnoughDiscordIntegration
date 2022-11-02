@@ -31,6 +31,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.javacord.api.DiscordApi;
 import org.javacord.api.DiscordApiBuilder;
+import org.javacord.api.entity.intent.Intent;
 import org.javacord.api.entity.message.Message;
 import org.javacord.api.entity.message.WebhookMessageBuilder;
 import org.javacord.api.entity.message.mention.AllowedMentions;
@@ -133,7 +134,8 @@ public class JustEnoughDiscordIntegrationMod {
     }
 
     private void setup(final FMLCommonSetupEvent event) {
-        discordBuilder = new DiscordApiBuilder();
+        discordBuilder = new DiscordApiBuilder()
+                .addIntents(Intent.MESSAGE_CONTENT);
         discordBuilder.addMessageCreateListener(new DiscordMessageListener());
         discordBuilder.addWebhooksUpdateListener((WebhooksUpdateListener) e -> loadWebhooks());
         discordBuilder.setShutdownHookRegistrationEnabled(false);
