@@ -132,8 +132,8 @@ repositories {
 dependencies {
     minecraft 'net.minecraftforge:forge:1.18.1-39.0.9'
 
-    library('org.javacord:javacord:3.3.2')
-    library('org.apache.logging.log4j:log4j-api:2.17.0')
+    library('org.javacord:javacord:3.6.0')
+    library('org.apache.logging.log4j:log4j-api:2.17.2')
 }
 
 jar {
