@@ -46,6 +46,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 
 import static net.minecraftforge.network.NetworkConstants.IGNORESERVERONLY;
 
@@ -171,7 +172,10 @@ public class JustEnoughDiscordIntegrationMod {
     @SubscribeEvent
     public void onServerShutdown(ServerStoppedEvent event) {
         CACHE_BUSTS.clear();
-        sendMessage(serverStoppedEntry.get()).join();
+        try {
+            sendMessage(serverStoppedEntry.get()).get(1, TimeUnit.SECONDS);
+        } catch (Exception ignored) {
+        }
         discord.ifPresent(DiscordApi::disconnect);
     }
 
