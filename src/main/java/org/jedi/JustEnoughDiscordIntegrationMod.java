@@ -2,7 +2,6 @@ package org.jedi;
 
 import com.google.common.collect.Maps;
 import net.minecraft.ChatFormatting;
-import net.minecraft.Util;
 import net.minecraft.advancements.Advancement;
 import net.minecraft.network.chat.ChatType;
 import net.minecraft.network.chat.Component;
@@ -31,6 +30,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.javacord.api.DiscordApi;
 import org.javacord.api.DiscordApiBuilder;
+import org.javacord.api.entity.intent.Intent;
 import org.javacord.api.entity.message.Message;
 import org.javacord.api.entity.message.WebhookMessageBuilder;
 import org.javacord.api.entity.message.mention.AllowedMentions;
@@ -133,7 +133,8 @@ public class JustEnoughDiscordIntegrationMod {
     }
 
     private void setup(final FMLCommonSetupEvent event) {
-        discordBuilder = new DiscordApiBuilder();
+        discordBuilder = new DiscordApiBuilder()
+                .addIntents(Intent.MESSAGE_CONTENT);
         discordBuilder.addMessageCreateListener(new DiscordMessageListener());
         discordBuilder.addWebhooksUpdateListener((WebhooksUpdateListener) e -> loadWebhooks());
         discordBuilder.setShutdownHookRegistrationEnabled(false);
@@ -216,7 +217,7 @@ public class JustEnoughDiscordIntegrationMod {
     public void onServerChatEvent(ServerChatEvent event) {
         try {
             final String username = event.getUsername();
-            final String message = event.getMessage();
+            final String message = event.getMessage().getString();
             final String uuid = event.getPlayer().getStringUUID();
             final String cacheBust = CACHE_BUSTS.getOrDefault(event.getPlayer().getUUID(), username);
 
@@ -239,7 +240,7 @@ public class JustEnoughDiscordIntegrationMod {
             if (!readChannels.get().contains(event.getChannel().getId())) return;
 
             Component chatMessage = messageFormatter.format(message);
-            ServerLifecycleHooks.getCurrentServer().getPlayerList().broadcastSystemMessage(chatMessage, ChatType.SYSTEM);
+            ServerLifecycleHooks.getCurrentServer().getPlayerList().broadcastSystemMessage(chatMessage, false);
         }
     }
 
