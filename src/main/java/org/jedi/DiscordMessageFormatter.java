@@ -49,7 +49,6 @@ public final class DiscordMessageFormatter {
 
     private Component formatAuthorName(Message message) {
         final TextColor color = this.getAuthorColor(message);
-        System.out.println(message.getAuthor().getDisplayName());
         final MutableComponent name = Component.literal(message.getAuthor().getName());
 
         return Component.literal(message.getAuthor().getDisplayName())
