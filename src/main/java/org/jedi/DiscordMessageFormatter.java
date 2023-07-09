@@ -49,12 +49,12 @@ public final class DiscordMessageFormatter {
 
     private Component formatAuthorName(Message message) {
         final TextColor color = this.getAuthorColor(message);
-        final MutableComponent discriminatedName = Component.literal(message.getAuthor().getDiscriminatedName());
+        final MutableComponent name = Component.literal(message.getAuthor().getName());
 
         return Component.literal(message.getAuthor().getDisplayName())
                 .withStyle(Style.EMPTY
                         .withColor(color)
-                        .withHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, discriminatedName))
+                        .withHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, name))
                 );
     }
 

@@ -2,9 +2,7 @@ package org.jedi;
 
 import com.google.common.collect.Maps;
 import net.minecraft.ChatFormatting;
-import net.minecraft.Util;
 import net.minecraft.advancements.Advancement;
-import net.minecraft.network.chat.ChatType;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LivingEntity;
@@ -12,7 +10,7 @@ import net.minecraftforge.common.ForgeConfigSpec;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.event.ServerChatEvent;
 import net.minecraftforge.event.entity.living.LivingDeathEvent;
-import net.minecraftforge.event.entity.player.AdvancementEvent;
+import net.minecraftforge.event.entity.player.AdvancementEvent.AdvancementEarnEvent;
 import net.minecraftforge.event.entity.player.PlayerEvent;
 import net.minecraftforge.event.server.ServerStartingEvent;
 import net.minecraftforge.event.server.ServerStoppedEvent;
@@ -31,6 +29,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.javacord.api.DiscordApi;
 import org.javacord.api.DiscordApiBuilder;
+import org.javacord.api.entity.intent.Intent;
 import org.javacord.api.entity.message.Message;
 import org.javacord.api.entity.message.WebhookMessageBuilder;
 import org.javacord.api.entity.message.mention.AllowedMentions;
@@ -93,16 +92,14 @@ public class JustEnoughDiscordIntegrationMod {
         ModLoadingContext.get().registerConfig(ModConfig.Type.SERVER, SERVER_CONFIG);
         MinecraftForge.EVENT_BUS.register(this);
 
-        ModLoadingContext.get().registerExtensionPoint(IExtensionPoint.DisplayTest.class, () -> {
-            return new IExtensionPoint.DisplayTest(
-                    () -> IGNORESERVERONLY,
-                    (a, b) -> true
-            );
-        });
+        ModLoadingContext.get().registerExtensionPoint(IExtensionPoint.DisplayTest.class, () -> new IExtensionPoint.DisplayTest(
+                () -> IGNORESERVERONLY,
+                (a, b) -> true
+        ));
     }
 
     private static void setupConfig(ForgeConfigSpec.Builder builder) {
-        builder.comment(" Create a bot here: https://discord.com/developers/applications");
+        builder.comment(" Create a bot here: https://discord.com/developers/applications \"Make sure 'Message Content Intent' is enabled\"");
         builder.push("Discord Values");
 
         botTokenEntry = builder.comment(" The bot-specific token for your Discord bot")
@@ -154,6 +151,7 @@ public class JustEnoughDiscordIntegrationMod {
         final String token = botTokenEntry.get();
         if (token.length() > 0) {
             discordBuilder.setToken(token);
+            discordBuilder.addIntents(Intent.MESSAGE_CONTENT);
             discordBuilder.login().thenAccept(dcObject -> {
                 discord = Optional.of(dcObject);
                 loadWebhooks();
@@ -195,12 +193,12 @@ public class JustEnoughDiscordIntegrationMod {
 
     @SubscribeEvent
     public void playerJoin(PlayerEvent.PlayerLoggedInEvent event) {
-        CACHE_BUSTS.put(event.getEntity().getUUID(), "" + System.currentTimeMillis());
+        CACHE_BUSTS.put(event.getEntity().getUUID(), String.valueOf(System.currentTimeMillis()));
         sendMessage(String.format(joinedGameEntry.get(), getPlayerName(event)));
     }
 
     @SubscribeEvent
-    public void playerLeave(AdvancementEvent event) {
+    public void onAdvancementEarn(AdvancementEarnEvent event) {
         final Advancement advancement = event.getAdvancement();
         if (advancement.getDisplay() == null) {
             return;
@@ -208,7 +206,6 @@ public class JustEnoughDiscordIntegrationMod {
         final String playerName = strip(event.getEntity().getDisplayName().getString());
         final String advancementName = strip(advancement.getDisplay().getTitle().getString());
         final String advancementDesc = strip(advancement.getDisplay().getDescription().getString());
-
         sendMessage(String.format(advancementEntry.get(), playerName, advancementName, advancementDesc));
     }
 
@@ -216,7 +213,7 @@ public class JustEnoughDiscordIntegrationMod {
     public void onServerChatEvent(ServerChatEvent event) {
         try {
             final String username = event.getUsername();
-            final String message = event.getMessage();
+            final String message = event.getMessage().getString();
             final String uuid = event.getPlayer().getStringUUID();
             final String cacheBust = CACHE_BUSTS.getOrDefault(event.getPlayer().getUUID(), username);
 
@@ -239,7 +236,7 @@ public class JustEnoughDiscordIntegrationMod {
             if (!readChannels.get().contains(event.getChannel().getId())) return;
 
             Component chatMessage = messageFormatter.format(message);
-            ServerLifecycleHooks.getCurrentServer().getPlayerList().broadcastSystemMessage(chatMessage, ChatType.SYSTEM);
+            ServerLifecycleHooks.getCurrentServer().getPlayerList().broadcastSystemMessage(chatMessage, false);
         }
     }
 
