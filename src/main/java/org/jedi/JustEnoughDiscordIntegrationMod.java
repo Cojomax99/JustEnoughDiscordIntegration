@@ -40,10 +40,7 @@ import org.javacord.api.listener.message.MessageCreateListener;
 
 import java.net.MalformedURLException;
 import java.net.URL;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.UUID;
+import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 
@@ -67,6 +64,7 @@ public class JustEnoughDiscordIntegrationMod {
     private static ForgeConfigSpec.ConfigValue<String> serverStartedEntry;
     private static ForgeConfigSpec.ConfigValue<String> serverShuttingDownEntry;
     private static ForgeConfigSpec.ConfigValue<String> replyingToEntry;
+    private static ForgeConfigSpec.ConfigValue<Boolean> sendDeathMessages;
 
     private static ForgeConfigSpec.ConfigValue<String> botTokenEntry;
     private static ForgeConfigSpec.ConfigValue<List<? extends String>> webhookEntries;
@@ -113,20 +111,22 @@ public class JustEnoughDiscordIntegrationMod {
 
         builder.push("Translations");
 
-        joinedGameEntry = builder.comment(" Posted in discord when someone joins the world")
+        joinedGameEntry = builder.comment(" Posted in discord when someone joins the world (leave blank to disable)")
                 .define("joined_game", "%s joined the game");
-        leftGameEntry = builder.comment(" Posted in discord when someone leaves the world")
+        leftGameEntry = builder.comment(" Posted in discord when someone leaves the world (leave blank to disable)")
                 .define("left_game", "%s left the game");
-        advancementEntry = builder.comment(" Posted in discord when someone makes an advancement")
+        advancementEntry = builder.comment(" Posted in discord when someone makes an advancement (leave blank to disable)")
                 .define("advancement", "%s has made the advancement **%s** - %s");
-        serverStartedEntry = builder.comment(" Posted in discord when the server has started up")
+        serverStartedEntry = builder.comment(" Posted in discord when the server has started up (leave blank to disable)")
                 .define("server_started", "Server started!");
-        serverStoppedEntry = builder.comment(" Posted in discord when the server has stopped")
+        serverStoppedEntry = builder.comment(" Posted in discord when the server has stopped (leave blank to disable)")
                 .define("server_stopped", "Server stopped!");
-        serverShuttingDownEntry = builder.comment(" Posted in discord when the server begins shutting down")
+        serverShuttingDownEntry = builder.comment(" Posted in discord when the server begins shutting down (leave blank to disable)")
                 .define("server_shutting_down", "Server shutting down!");
-        replyingToEntry = builder.comment(" The text to use to relay that a Discord message is being replied to")
+        replyingToEntry = builder.comment(" The text to use to relay that a Discord message is being replied to (leave blank to disable)")
                 .define("replying_to", "replying to");
+        sendDeathMessages = builder.comment(" Whether to send a Discord message when a player or named entity dies")
+                .define("send_death_messages", true);
     }
 
     private void setup(final FMLCommonSetupEvent event) {
@@ -155,7 +155,7 @@ public class JustEnoughDiscordIntegrationMod {
             discordBuilder.login().thenAccept(dcObject -> {
                 discord = Optional.of(dcObject);
                 loadWebhooks();
-                sendMessage(serverStartedEntry.get());
+                sendMessage(serverStartedEntry);
             });
         } else {
             LOGGER.warn("Couldn't connect to discord - token empty. Check server config jedi.toml!");
@@ -164,14 +164,14 @@ public class JustEnoughDiscordIntegrationMod {
 
     @SubscribeEvent
     public void onServerShuttingDown(ServerStoppingEvent event) {
-        sendMessage(serverShuttingDownEntry.get());
+        sendMessage(serverShuttingDownEntry);
     }
 
     @SubscribeEvent
     public void onServerShutdown(ServerStoppedEvent event) {
         CACHE_BUSTS.clear();
         try {
-            sendMessage(serverStoppedEntry.get()).get(1, TimeUnit.SECONDS);
+            sendMessage(serverStoppedEntry).get(1, TimeUnit.SECONDS);
         } catch (Exception ignored) {
         }
         discord.ifPresent(DiscordApi::disconnect);
@@ -179,6 +179,9 @@ public class JustEnoughDiscordIntegrationMod {
 
     @SubscribeEvent
     public void death(LivingDeathEvent event) {
+        if (!sendDeathMessages.get()) {
+            return;
+        }
         final LivingEntity entity = event.getEntity();
         if (entity.getType() == EntityType.PLAYER || entity.hasCustomName()) {
             sendMessage(strip(event.getSource().getLocalizedDeathMessage(entity).getString()));
@@ -188,13 +191,13 @@ public class JustEnoughDiscordIntegrationMod {
     @SubscribeEvent
     public void playerLeave(PlayerEvent.PlayerLoggedOutEvent event) {
         CACHE_BUSTS.remove(event.getEntity().getUUID());
-        sendMessage(String.format(leftGameEntry.get(), getPlayerName(event)));
+        sendMessage(leftGameEntry, getPlayerName(event));
     }
 
     @SubscribeEvent
     public void playerJoin(PlayerEvent.PlayerLoggedInEvent event) {
         CACHE_BUSTS.put(event.getEntity().getUUID(), String.valueOf(System.currentTimeMillis()));
-        sendMessage(String.format(joinedGameEntry.get(), getPlayerName(event)));
+        sendMessage(joinedGameEntry, getPlayerName(event));
     }
 
     @SubscribeEvent
@@ -206,7 +209,15 @@ public class JustEnoughDiscordIntegrationMod {
         final String playerName = strip(event.getEntity().getDisplayName().getString());
         final String advancementName = strip(advancement.getDisplay().getTitle().getString());
         final String advancementDesc = strip(advancement.getDisplay().getDescription().getString());
-        sendMessage(String.format(advancementEntry.get(), playerName, advancementName, advancementDesc));
+        sendMessage(advancementEntry, playerName, advancementName, advancementDesc);
+    }
+
+    private static CompletableFuture<?> sendMessage(final ForgeConfigSpec.ConfigValue<String> entry, final Object... args) {
+        final String value = entry.get();
+        if (!value.isBlank()) {
+            return sendMessage(String.format(Locale.ROOT, value, args));
+        }
+        return CompletableFuture.completedFuture(null);
     }
 
     @SubscribeEvent
