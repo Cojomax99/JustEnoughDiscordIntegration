@@ -64,7 +64,7 @@ public class JustEnoughDiscordIntegrationMod {
     private static ForgeConfigSpec.ConfigValue<String> serverStartedEntry;
     private static ForgeConfigSpec.ConfigValue<String> serverShuttingDownEntry;
     private static ForgeConfigSpec.ConfigValue<String> replyingToEntry;
-    private static ForgeConfigSpec.ConfigValue<Boolean> sendDeathMessages;
+    private static ForgeConfigSpec.BooleanValue sendDeathMessages;
 
     private static ForgeConfigSpec.ConfigValue<String> botTokenEntry;
     private static ForgeConfigSpec.ConfigValue<List<? extends String>> webhookEntries;
@@ -225,10 +225,12 @@ public class JustEnoughDiscordIntegrationMod {
         try {
             final String username = event.getUsername();
             final String message = event.getMessage().getString();
-            final String uuid = event.getPlayer().getStringUUID();
-            final String cacheBust = CACHE_BUSTS.getOrDefault(event.getPlayer().getUUID(), username);
+            if (!message.isBlank()) {
+                final String uuid = event.getPlayer().getStringUUID();
+                final String cacheBust = CACHE_BUSTS.getOrDefault(event.getPlayer().getUUID(), username);
 
-            sendMessage(message, username, new URL(String.format(VISAGE_URL, uuid, cacheBust)));
+                sendMessage(message, username, new URL(String.format(VISAGE_URL, uuid, cacheBust)));
+            }
         } catch (MalformedURLException e) {
             e.printStackTrace();
         }
