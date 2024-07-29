@@ -6,25 +6,23 @@ import net.minecraft.advancements.Advancement;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LivingEntity;
-import net.minecraftforge.common.ForgeConfigSpec;
-import net.minecraftforge.common.MinecraftForge;
-import net.minecraftforge.event.ServerChatEvent;
-import net.minecraftforge.event.entity.living.LivingDeathEvent;
-import net.minecraftforge.event.entity.player.AdvancementEvent.AdvancementEarnEvent;
-import net.minecraftforge.event.entity.player.PlayerEvent;
-import net.minecraftforge.event.server.ServerStartingEvent;
-import net.minecraftforge.event.server.ServerStoppedEvent;
-import net.minecraftforge.event.server.ServerStoppingEvent;
-import net.minecraftforge.eventbus.api.IEventBus;
-import net.minecraftforge.eventbus.api.SubscribeEvent;
-import net.minecraftforge.fml.IExtensionPoint;
-import net.minecraftforge.fml.ModLoadingContext;
-import net.minecraftforge.fml.common.Mod;
-import net.minecraftforge.fml.config.ModConfig;
-import net.minecraftforge.fml.event.config.ModConfigEvent;
-import net.minecraftforge.fml.event.lifecycle.FMLCommonSetupEvent;
-import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
-import net.minecraftforge.server.ServerLifecycleHooks;
+import net.neoforged.bus.api.IEventBus;
+import net.neoforged.bus.api.SubscribeEvent;
+import net.neoforged.fml.ModContainer;
+import net.neoforged.fml.common.Mod;
+import net.neoforged.fml.config.ModConfig;
+import net.neoforged.fml.event.config.ModConfigEvent;
+import net.neoforged.fml.event.lifecycle.FMLCommonSetupEvent;
+import net.neoforged.neoforge.common.ModConfigSpec;
+import net.neoforged.neoforge.common.NeoForge;
+import net.neoforged.neoforge.event.ServerChatEvent;
+import net.neoforged.neoforge.event.entity.living.LivingDeathEvent;
+import net.neoforged.neoforge.event.entity.player.AdvancementEvent;
+import net.neoforged.neoforge.event.entity.player.PlayerEvent;
+import net.neoforged.neoforge.event.server.ServerStartingEvent;
+import net.neoforged.neoforge.event.server.ServerStoppedEvent;
+import net.neoforged.neoforge.event.server.ServerStoppingEvent;
+import net.neoforged.neoforge.server.ServerLifecycleHooks;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.javacord.api.DiscordApi;
@@ -40,11 +38,13 @@ import org.javacord.api.listener.message.MessageCreateListener;
 
 import java.net.MalformedURLException;
 import java.net.URL;
-import java.util.*;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Optional;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
-
-import static net.minecraftforge.network.NetworkConstants.IGNORESERVERONLY;
 
 @Mod("jedi")
 public class JustEnoughDiscordIntegrationMod {
@@ -52,23 +52,23 @@ public class JustEnoughDiscordIntegrationMod {
 
     private static final Map<UUID, String> CACHE_BUSTS = Maps.newHashMap();
 
-    private static final ForgeConfigSpec SERVER_CONFIG;
+    private static final ModConfigSpec SERVER_CONFIG;
     private static final String VISAGE_URL = "https://visage.surgeplay.com/bust/128/%s.png?bust=%s";
 
     private static final AllowedMentions NO_MENTIONS = new AllowedMentionsBuilder().build();
 
-    private static ForgeConfigSpec.ConfigValue<String> joinedGameEntry;
-    private static ForgeConfigSpec.ConfigValue<String> leftGameEntry;
-    private static ForgeConfigSpec.ConfigValue<String> advancementEntry;
-    private static ForgeConfigSpec.ConfigValue<String> serverStoppedEntry;
-    private static ForgeConfigSpec.ConfigValue<String> serverStartedEntry;
-    private static ForgeConfigSpec.ConfigValue<String> serverShuttingDownEntry;
-    private static ForgeConfigSpec.ConfigValue<String> replyingToEntry;
-    private static ForgeConfigSpec.BooleanValue sendDeathMessages;
+    private static ModConfigSpec.ConfigValue<String> joinedGameEntry;
+    private static ModConfigSpec.ConfigValue<String> leftGameEntry;
+    private static ModConfigSpec.ConfigValue<String> advancementEntry;
+    private static ModConfigSpec.ConfigValue<String> serverStoppedEntry;
+    private static ModConfigSpec.ConfigValue<String> serverStartedEntry;
+    private static ModConfigSpec.ConfigValue<String> serverShuttingDownEntry;
+    private static ModConfigSpec.ConfigValue<String> replyingToEntry;
+    private static ModConfigSpec.BooleanValue sendDeathMessages;
 
-    private static ForgeConfigSpec.ConfigValue<String> botTokenEntry;
-    private static ForgeConfigSpec.ConfigValue<List<? extends String>> webhookEntries;
-    private static ForgeConfigSpec.ConfigValue<List<? extends Long>> readChannels;
+    private static ModConfigSpec.ConfigValue<String> botTokenEntry;
+    private static ModConfigSpec.ConfigValue<List<? extends String>> webhookEntries;
+    private static ModConfigSpec.ConfigValue<List<? extends Long>> readChannels;
 
     private static DiscordApiBuilder discordBuilder;
     private static Optional<DiscordApi> discord = Optional.empty();
@@ -77,26 +77,20 @@ public class JustEnoughDiscordIntegrationMod {
     private static DiscordMessageFormatter messageFormatter = new DiscordMessageFormatter("replying to");
 
     static {
-        ForgeConfigSpec.Builder configBuilder = new ForgeConfigSpec.Builder();
+        ModConfigSpec.Builder configBuilder = new ModConfigSpec.Builder();
         setupConfig(configBuilder);
         SERVER_CONFIG = configBuilder.build();
     }
 
-    public JustEnoughDiscordIntegrationMod() {
-        IEventBus modBus = FMLJavaModLoadingContext.get().getModEventBus();
+    public JustEnoughDiscordIntegrationMod(IEventBus modBus, ModContainer container) {
         modBus.addListener(this::setup);
         modBus.addListener(this::loadModConfig);
 
-        ModLoadingContext.get().registerConfig(ModConfig.Type.SERVER, SERVER_CONFIG);
-        MinecraftForge.EVENT_BUS.register(this);
-
-        ModLoadingContext.get().registerExtensionPoint(IExtensionPoint.DisplayTest.class, () -> new IExtensionPoint.DisplayTest(
-                () -> IGNORESERVERONLY,
-                (a, b) -> true
-        ));
+        container.registerConfig(ModConfig.Type.SERVER, SERVER_CONFIG);
+        NeoForge.EVENT_BUS.register(this);
     }
 
-    private static void setupConfig(ForgeConfigSpec.Builder builder) {
+    private static void setupConfig(ModConfigSpec.Builder builder) {
         builder.comment(" Create a bot here: https://discord.com/developers/applications \"Make sure 'Message Content Intent' is enabled\"");
         builder.push("Discord Values");
 
@@ -201,18 +195,18 @@ public class JustEnoughDiscordIntegrationMod {
     }
 
     @SubscribeEvent
-    public void onAdvancementEarn(AdvancementEarnEvent event) {
-        final Advancement advancement = event.getAdvancement();
-        if (advancement.getDisplay() == null) {
+    public void onAdvancementEarn(AdvancementEvent.AdvancementEarnEvent event) {
+        final Advancement advancement = event.getAdvancement().value();
+        if (advancement.display().isEmpty()) {
             return;
         }
         final String playerName = strip(event.getEntity().getDisplayName().getString());
-        final String advancementName = strip(advancement.getDisplay().getTitle().getString());
-        final String advancementDesc = strip(advancement.getDisplay().getDescription().getString());
+        final String advancementName = strip(advancement.display().get().getTitle().getString());
+        final String advancementDesc = strip(advancement.display().get().getDescription().getString());
         sendMessage(advancementEntry, playerName, advancementName, advancementDesc);
     }
 
-    private static CompletableFuture<?> sendMessage(final ForgeConfigSpec.ConfigValue<String> entry, final Object... args) {
+    private static CompletableFuture<?> sendMessage(final ModConfigSpec.ConfigValue<String> entry, final Object... args) {
         final String value = entry.get();
         if (!value.isBlank()) {
             return sendMessage(String.format(Locale.ROOT, value, args));
