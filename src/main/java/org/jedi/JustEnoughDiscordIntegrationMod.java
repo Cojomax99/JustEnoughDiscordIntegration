@@ -130,9 +130,16 @@ public class JustEnoughDiscordIntegrationMod {
         discordBuilder.setShutdownHookRegistrationEnabled(false);
     }
 
-    private void loadModConfig(ModConfigEvent event) {
-        loadWebhooks();
+    private void loadModConfig(ModConfigEvent.Loading event) {
+        loadFromConfig();
+    }
 
+    private void reloadModConfig(ModConfigEvent.Reloading event) {
+        loadFromConfig();
+    }
+
+    private static void loadFromConfig() {
+        loadWebhooks();
         messageFormatter = new DiscordMessageFormatter(replyingToEntry.get());
     }
 
