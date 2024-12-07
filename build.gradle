@@ -159,14 +159,23 @@ jar {
 shadowJar {
     configurations = [project.configurations.library]
     classifier = ''
-    relocate 'org.apache.logging.log4j', 'shadowjedi.org.apache.logging.log4j'
-    relocate 'org.javacord', 'shadowjedi.orgjavacord'
-    relocate 'io.vavr', 'shadowjedi.io.vavr'
-    relocate 'org.bouncycastle', 'shadowjedi.bouncycastle'
-    relocate 'com.fasterxml', 'shadowjedi.com.fasterxml'
-    relocate 'okio', 'shadowjedi.okio'
-    relocate 'com.neovisionaries', 'shadowjedi.com.neovisionaries'
-    relocate 'okhttp3', 'shadowjedi.okhttp3'
+    [
+            'com.codahale',
+            'com.fasterxml',
+            'com.neovisionaries',
+            'io.vavr',
+            'javax.annotation',
+            'kotlin',
+            'okhttp3',
+            'okio',
+            'org.apache.logging.log4j',
+            'org.bouncycastle',
+            'org.intellij',
+            'org.javacord',
+            'org.jetbrains',
+    ].forEach { name ->
+        relocate name, "shadowjedi.$name"
+    }
     mergeServiceFiles()
 }
 
