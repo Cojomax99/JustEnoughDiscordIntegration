@@ -2,7 +2,7 @@ plugins {
     id 'eclipse'
     id 'idea'
     id 'java-library'
-    id 'net.neoforged.moddev' version '1.0.0'
+    id 'net.neoforged.moddev' version '2.0.103'
     id 'io.github.goooler.shadow' version '8.1.8'
 }
 

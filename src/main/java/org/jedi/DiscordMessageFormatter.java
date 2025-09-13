@@ -11,6 +11,7 @@ import org.apache.commons.io.FileUtils;
 import org.javacord.api.entity.message.Message;
 import org.javacord.api.entity.message.MessageAttachment;
 
+import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -54,7 +55,7 @@ public final class DiscordMessageFormatter {
         return Component.literal(message.getAuthor().getDisplayName())
                 .withStyle(Style.EMPTY
                         .withColor(color)
-                        .withHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, name))
+                        .withHoverEvent(new HoverEvent.ShowText(name))
                 );
     }
 
@@ -62,8 +63,8 @@ public final class DiscordMessageFormatter {
         final String url = attachment.getUrl().toString();
         final Style attachmentStyle = Style.EMPTY
                 .withColor(ChatFormatting.BLUE).withUnderlined(true)
-                .withClickEvent(new ClickEvent(ClickEvent.Action.OPEN_URL, url))
-                .withHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, Component.literal(url).withStyle(ChatFormatting.BLUE, ChatFormatting.UNDERLINE)));
+                .withClickEvent(new ClickEvent.OpenUrl(URI.create(url)))
+                .withHoverEvent(new HoverEvent.ShowText(Component.literal(url).withStyle(ChatFormatting.BLUE, ChatFormatting.UNDERLINE)));
 
         final String description = this.getAttachmentDescription(attachment);
         return Component.literal(description).withStyle(attachmentStyle);
