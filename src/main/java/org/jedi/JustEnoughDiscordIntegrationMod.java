@@ -6,6 +6,7 @@ import net.minecraft.advancements.Advancement;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.player.Player;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.ModContainer;
@@ -191,12 +192,18 @@ public class JustEnoughDiscordIntegrationMod {
 
     @SubscribeEvent
     public void playerLeave(PlayerEvent.PlayerLoggedOutEvent event) {
+        if (shouldIgnorePlayer(event.getEntity())) {
+            return;
+        }
         CACHE_BUSTS.remove(event.getEntity().getUUID());
         sendMessage(leftGameEntry, getPlayerName(event));
     }
 
     @SubscribeEvent
     public void playerJoin(PlayerEvent.PlayerLoggedInEvent event) {
+        if (shouldIgnorePlayer(event.getEntity())) {
+            return;
+        }
         CACHE_BUSTS.put(event.getEntity().getUUID(), String.valueOf(System.currentTimeMillis()));
         sendMessage(joinedGameEntry, getPlayerName(event));
     }
@@ -211,6 +218,10 @@ public class JustEnoughDiscordIntegrationMod {
         final String advancementName = strip(advancement.display().get().getTitle().getString());
         final String advancementDesc = strip(advancement.display().get().getDescription().getString());
         sendMessage(advancementEntry, playerName, advancementName, advancementDesc);
+    }
+
+    private static boolean shouldIgnorePlayer(Player player) {
+        return player.getTags().contains("ltminigames.reloading");
     }
 
     private static CompletableFuture<?> sendMessage(final ModConfigSpec.ConfigValue<String> entry, final Object... args) {
