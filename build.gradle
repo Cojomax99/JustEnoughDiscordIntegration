@@ -2,8 +2,8 @@ plugins {
     id 'eclipse'
     id 'idea'
     id 'java-library'
-    id 'net.neoforged.moddev' version '2.0.103'
-    id 'io.github.goooler.shadow' version '8.1.8'
+    id 'net.neoforged.moddev' version '2.0.141'
+    id 'com.gradleup.shadow' version '9.4.1'
 }
 
 group = 'org.jedi'
@@ -12,17 +12,12 @@ base {
     archivesName = mod_id
 }
 
-java.toolchain.languageVersion = JavaLanguageVersion.of(21)
+java.toolchain.languageVersion = JavaLanguageVersion.of(25)
 
 println('Java: ' + System.getProperty('java.version') + ' JVM: ' + System.getProperty('java.vm.version') + '(' + System.getProperty('java.vendor') + ') Arch: ' + System.getProperty('os.arch'))
 
 neoForge {
     version = project.neo_version
-
-    parchment {
-        minecraftVersion = project.minecraft_version
-        mappingsVersion = project.parchment_version
-    }
 
     runs {
         configureEach {
@@ -54,10 +49,10 @@ repositories {
 }
 
 dependencies {
-    additionalRuntimeClasspath(library("org.javacord:javacord:${javacord_version}")) {
+    jarJar(implementation("org.javacord:javacord:${javacord_version}")) {
         exclude group: 'org.jetbrains'
     }
-    additionalRuntimeClasspath(library('org.apache.logging.log4j:log4j-api:2.17.2'))
+    jarJar(implementation('org.apache.logging.log4j:log4j-api:2.17.2'))
 }
 
 jar {

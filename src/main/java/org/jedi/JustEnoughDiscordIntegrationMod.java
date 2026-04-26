@@ -221,7 +221,7 @@ public class JustEnoughDiscordIntegrationMod {
     }
 
     private static boolean shouldIgnorePlayer(Player player) {
-        return player.getTags().contains("ltminigames.reloading");
+        return player.entityTags().contains("ltminigames.reloading");
     }
 
     private static CompletableFuture<?> sendMessage(final ModConfigSpec.ConfigValue<String> entry, final Object... args) {
