@@ -53,7 +53,7 @@ public class JustEnoughDiscordIntegrationMod {
 
     private static final Map<UUID, String> CACHE_BUSTS = Maps.newHashMap();
 
-    private static final ModConfigSpec SERVER_CONFIG;
+    private static final ModConfigSpec JEDI_CONFIG;
     private static final String VISAGE_URL = "https://visage.surgeplay.com/bust/128/%s.png?bust=%s";
 
     private static final AllowedMentions NO_MENTIONS = new AllowedMentionsBuilder().build();
@@ -80,14 +80,14 @@ public class JustEnoughDiscordIntegrationMod {
     static {
         ModConfigSpec.Builder configBuilder = new ModConfigSpec.Builder();
         setupConfig(configBuilder);
-        SERVER_CONFIG = configBuilder.build();
+        JEDI_CONFIG = configBuilder.build();
     }
 
     public JustEnoughDiscordIntegrationMod(IEventBus modBus, ModContainer container) {
         modBus.addListener(this::setup);
         modBus.addListener(this::loadModConfig);
 
-        container.registerConfig(ModConfig.Type.SERVER, SERVER_CONFIG);
+        container.registerConfig(ModConfig.Type.COMMON, JEDI_CONFIG);
         NeoForge.EVENT_BUS.register(this);
     }
 
