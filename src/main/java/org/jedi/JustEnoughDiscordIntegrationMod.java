@@ -5,6 +5,7 @@ import net.minecraft.ChatFormatting;
 import net.minecraft.advancements.Advancement;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.EntityTypes;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
 import net.neoforged.bus.api.IEventBus;
@@ -185,7 +186,7 @@ public class JustEnoughDiscordIntegrationMod {
             return;
         }
         final LivingEntity entity = event.getEntity();
-        if (entity.getType() == EntityType.PLAYER || entity.hasCustomName()) {
+        if (entity.getType() == EntityTypes.PLAYER || entity.hasCustomName()) {
             sendMessage(strip(event.getSource().getLocalizedDeathMessage(entity).getString()));
         }
     }
